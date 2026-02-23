@@ -40,15 +40,15 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 215 59% 26%;
-    --sidebar-foreground: 215 20% 85%;
+    --sidebar-background: 215 65% 16%;
+    --sidebar-foreground: 215 20% 80%;
     --sidebar-primary: 162 100% 39%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 50% 32%;
+    --sidebar-accent: 215 55% 22%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 215 40% 35%;
+    --sidebar-border: 215 40% 24%;
     --sidebar-ring: 162 100% 39%;
-    --sidebar-muted: 215 30% 45%;
+    --sidebar-muted: 215 30% 40%;
   }
 }
 
@@ -109,7 +109,7 @@
   }
 
   .sidebar-gradient {
-    background: linear-gradient(180deg, hsl(215 59% 26%) 0%, hsl(215 59% 20%) 100%);
+    background: linear-gradient(180deg, hsl(215 60% 20%) 0%, hsl(215 65% 16%) 60%);
   }
 
   .fade-in {

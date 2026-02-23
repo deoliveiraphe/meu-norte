@@ -3,7 +3,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Send, Paperclip, ChevronDown, ChevronUp, Bot, User } from 'lucide-react';
+import { Plus, Send, Paperclip, ChevronDown, ChevronUp, Bot, User, FileText } from 'lucide-react';
 import { mockConversations, mockExpenseCategories, type ChatMessage, type Conversation } from '@/data/mockData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -18,14 +18,19 @@ function SourcesPanel({ sources }: { sources: ChatMessage['sources'] }) {
         {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
       <div className={`overflow-hidden transition-all duration-300 ${open ? 'max-h-[400px] mt-2' : 'max-h-0'}`}>
-        <div className="bg-primary/5 rounded-lg p-3 space-y-2">
+        <div className="rounded-lg p-3 space-y-2 bg-primary/5">
           {sources.map((s, i) => (
-            <div key={i} className="bg-card rounded-md p-2.5 border border-border">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold text-foreground">📄 Fonte {i + 1} — {s.title}</span>
-                <span className="text-[10px] text-muted-foreground">Relevância: {s.relevance}%</span>
+            <div key={i} className="bg-card rounded-md p-3 border-l-[3px] border-l-primary/60 border border-border flex gap-3 items-start">
+              <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <FileText className="w-3.5 h-3.5 text-primary" />
               </div>
-              <p className="text-xs text-muted-foreground">"{s.excerpt}"</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-foreground">Fonte {i + 1} — {s.title}</span>
+                  <span className="text-[10px] font-medium text-primary/60 bg-primary/5 px-1.5 py-0.5 rounded">{s.relevance}%</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">"{s.excerpt}"</p>
+              </div>
             </div>
           ))}
         </div>
