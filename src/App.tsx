@@ -8,6 +8,7 @@ import Transactions from "./pages/Transactions";
 import AIAssistant from "./pages/AIAssistant";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
+import { FloatingAIButton } from "./components/FloatingAIButton";
 
 const queryClient = new QueryClient();
 
@@ -17,6 +18,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <FloatingAIButton />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/lancamentos" element={<Transactions />} />
