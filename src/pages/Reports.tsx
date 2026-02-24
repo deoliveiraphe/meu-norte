@@ -3,12 +3,14 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, FileSpreadsheet, Share2, TrendingUp, TrendingDown } from 'lucide-react';
-import { mockMonthlyEvolution, mockExpenseCategories, formatCurrency } from '@/data/mockData';
+import { formatCurrency } from '@/data/mockData';
+import { api } from '@/lib/api';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, RadialBarChart, RadialBar, LineChart, Line,
 } from 'recharts';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useFinanceStore } from '@/stores/useFinanceStore';
 
 const COLORS = ['#1B3A6B', '#00C896', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#14B8A6', '#6B7280'];
 
@@ -33,10 +35,47 @@ const projectionData = [
 const savingsGauge = [{ name: 'Taxa', value: 31.2, fill: '#00C896' }];
 
 export default function Reports() {
+  const { currentMonth, currentYear } = useFinanceStore();
   const [period, setPeriod] = useState('mensal');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const donutData = mockExpenseCategories.map(c => ({ name: c.name, value: c.value }));
-  const totalExpenses = donutData.reduce((s, d) => s + d.value, 0);
+  useEffect(() => {
+    const fetchReport = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get(`/relatorios/resumo?periodo=${period}&mes=${currentMonth + 1}&ano=${currentYear}`);
+        setData(res);
+      } catch (err) {
+        console.error("Erro ao carregar relatório:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReport();
+  }, [period, currentMonth, currentYear]);
+
+  if (loading || !data) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-[50vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const { evolucao, ranking_categorias, indicadores } = data;
+
+  // Adaptador pro Donut
+  const donutData = ranking_categorias
+    .map((c: { name: string; current: number }) => ({ name: c.name, value: c.current }))
+    .filter((d: { value: number }) => d.value > 0);
+  const totalExpenses = donutData.reduce((s: number, d: { value: number }) => s + d.value, 0);
+
+  // Adaptador Radial Poupança
+  const savingsGauge = [{ name: 'Taxa', value: indicadores.taxa_poupanca_perc, fill: '#00C896' }];
 
   return (
     <AppLayout>
@@ -54,7 +93,7 @@ export default function Reports() {
       <Card className="p-5 card-shadow mb-6">
         <h3 className="text-sm font-semibold text-foreground mb-4">Evolução Patrimonial — Últimos 12 Meses</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={mockMonthlyEvolution}>
+          <AreaChart data={evolucao}>
             <defs>
               <linearGradient id="gRec" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#00C896" stopOpacity={0.3} />
@@ -64,6 +103,10 @@ export default function Reports() {
                 <stop offset="0%" stopColor="#FF4D4F" stopOpacity={0.3} />
                 <stop offset="100%" stopColor="#FF4D4F" stopOpacity={0} />
               </linearGradient>
+              <linearGradient id="gReneg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
+              </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 92%)" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
@@ -71,6 +114,7 @@ export default function Reports() {
             <Tooltip formatter={(v: number) => formatCurrency(v)} />
             <Area type="monotone" dataKey="receita" stroke="#00C896" fill="url(#gRec)" strokeWidth={2} name="Receitas" />
             <Area type="monotone" dataKey="despesa" stroke="#FF4D4F" fill="url(#gDesp)" strokeWidth={2} name="Despesas" />
+            <Area type="monotone" dataKey="renegociacao" stroke="#F59E0B" fill="url(#gReneg)" strokeWidth={2} name="Renegociação" />
             <Line type="monotone" dataKey="saldo" stroke="#1B3A6B" strokeWidth={2.5} dot={false} name="Saldo Acumulado" />
           </AreaChart>
         </ResponsiveContainer>
@@ -99,7 +143,8 @@ export default function Reports() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 mt-4">
-            {donutData.map((d, i) => (
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {donutData.map((d: any, i: number) => (
               <div key={d.name} className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i] }} />
                 <span className="text-xs text-muted-foreground">{d.name}</span>
@@ -111,14 +156,14 @@ export default function Reports() {
         <Card className="p-5 card-shadow">
           <h3 className="text-sm font-semibold text-foreground mb-4">Ranking de Categorias</h3>
           <div className="space-y-2">
-            {categoryRanking.map((cat, i) => (
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {ranking_categorias.map((cat: any, i: number) => (
               <div key={cat.name} className="flex items-center gap-3 py-1.5">
                 <span className="text-xs text-muted-foreground w-5 text-right">{i + 1}.</span>
                 <span className="text-sm font-medium text-foreground flex-1">{cat.name}</span>
                 <span className="text-sm font-semibold text-foreground w-24 text-right">{formatCurrency(cat.current)}</span>
-                <div className={`flex items-center gap-0.5 w-16 justify-end text-xs font-medium ${
-                  cat.change > 0 ? 'text-danger' : cat.change < 0 ? 'text-success' : 'text-muted-foreground'
-                }`}>
+                <div className={`flex items-center gap-0.5 w-16 justify-end text-xs font-medium ${cat.change > 0 ? 'text-danger' : cat.change < 0 ? 'text-success' : 'text-muted-foreground'
+                  }`}>
                   {cat.change > 0 && <TrendingUp className="w-3 h-3" />}
                   {cat.change < 0 && <TrendingDown className="w-3 h-3" />}
                   {cat.change !== 0 ? `${Math.abs(cat.change)}%` : '—'}
@@ -140,22 +185,18 @@ export default function Reports() {
               </RadialBarChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-3xl font-bold text-foreground -mt-8">31,2%</p>
-          <p className="text-xs text-success font-medium mt-1">Meta: 30% ✅</p>
+          <p className="text-3xl font-bold text-foreground -mt-8">{indicadores.taxa_poupanca_perc}%</p>
+          <p className="text-xs text-success font-medium mt-1">Taxa Saudável</p>
         </Card>
 
         <Card className="p-5 card-shadow">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Comprometimento de Renda</h3>
-          <p className="text-3xl font-bold text-foreground text-center mb-4">68,8%</p>
+          <h3 className="text-sm font-semibold text-foreground mb-4">Comprometimento de Receitas</h3>
+          <p className="text-3xl font-bold text-foreground text-center mb-4">{indicadores.comprometimento_renda_perc}%</p>
           <div className="h-4 rounded-full overflow-hidden flex bg-secondary">
-            <div className="bg-primary h-full" style={{ width: '42%' }} />
-            <div className="h-full" style={{ width: '27%', backgroundColor: '#3B82F6' }} />
-            <div className="bg-success h-full" style={{ width: '31%' }} />
+            <div className="bg-danger h-full" style={{ width: `${indicadores.comprometimento_renda_perc}%` }} />
           </div>
-          <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary" /> Fixos 42%</div>
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3B82F6' }} /> Variável 27%</div>
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success" /> Poupança 31%</div>
+          <div className="flex justify-center mt-2 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger" /> Renda Fatiada e Paga</div>
           </div>
         </Card>
 
@@ -170,15 +211,16 @@ export default function Reports() {
             </LineChart>
           </ResponsiveContainer>
           <p className="text-[10px] text-muted-foreground text-center mt-1">Projeção baseada nos últimos 3 meses</p>
+          <p className="text-[10px] text-muted-foreground text-center mt-1">Projeção baseada nos últimos 3 meses</p>
         </Card>
-      </div>
+      </div >
 
       {/* Export buttons */}
-      <div className="flex flex-wrap gap-3">
+      < div className="flex flex-wrap gap-3" >
         <Button variant="outline" className="gap-1.5 text-xs"><Download className="w-4 h-4" /> Exportar PDF</Button>
         <Button variant="outline" className="gap-1.5 text-xs"><FileSpreadsheet className="w-4 h-4" /> Exportar Excel</Button>
         <Button variant="outline" className="gap-1.5 text-xs"><Share2 className="w-4 h-4" /> Compartilhar</Button>
-      </div>
-    </AppLayout>
+      </div >
+    </AppLayout >
   );
 }

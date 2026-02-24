@@ -14,6 +14,9 @@ from datetime import date
 from calendar import monthrange
 from app.models.lancamento import Lancamento
 
+from sqlalchemy.orm import aliased
+from app.models.categoria import Categoria
+
 async def get_real_user_context(user_id: int, db: AsyncSession) -> dict:
     hoje = date.today()
     target_mes = hoje.month
@@ -23,12 +26,14 @@ async def get_real_user_context(user_id: int, db: AsyncSession) -> dict:
     inicio_mes_atual = date(target_ano, target_mes, 1)
     fim_mes_atual = date(target_ano, target_mes, last_day_atual)
 
+    # Buscar Totais Globais
     stmt_atual = select(
         Lancamento.tipo, func.sum(Lancamento.valor).label("total")
     ).where(
         Lancamento.user_id == user_id,
         Lancamento.data_vencimento >= inicio_mes_atual,
-        Lancamento.data_vencimento <= fim_mes_atual
+        Lancamento.data_vencimento <= fim_mes_atual,
+        Lancamento.is_pago == True # Opcional: considerar apenas os pagos no contexto de saldo real
     ).group_by(Lancamento.tipo)
     
     result_atual = await db.execute(stmt_atual)
@@ -38,6 +43,25 @@ async def get_real_user_context(user_id: int, db: AsyncSession) -> dict:
     despesa_mes = agrupado_atual.get("despesa", 0.0)
     saldo = receita_mes - despesa_mes
     
+    # Buscar Totais Agrupados por Categoria
+    stmt_categorias = select(
+        Lancamento.tipo, Categoria.nome.label("categoria_nome"), func.sum(Lancamento.valor).label("total")
+    ).join(
+        Categoria, Lancamento.categoria_id == Categoria.id
+    ).where(
+        Lancamento.user_id == user_id,
+        Lancamento.data_vencimento >= inicio_mes_atual,
+        Lancamento.data_vencimento <= fim_mes_atual
+    ).group_by(Lancamento.tipo, Categoria.nome)
+    
+    result_cat = await db.execute(stmt_categorias)
+    gastos_por_categoria = {"receita": {}, "despesa": {}}
+    for row in result_cat.all():
+        tipo_cat = row.tipo
+        nome_cat = row.categoria_nome
+        total_cat = float(row.total)
+        gastos_por_categoria[tipo_cat][nome_cat] = total_cat
+
     meses_pt = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
     mes_str = f"{meses_pt[target_mes-1]} de {target_ano}"
     
@@ -45,7 +69,8 @@ async def get_real_user_context(user_id: int, db: AsyncSession) -> dict:
         "mes_atual": mes_str,
         "receita_total": receita_mes,
         "despesa_total": despesa_mes,
-        "saldo": saldo
+        "saldo": saldo,
+        "detalhes_categoria": gastos_por_categoria
     }
 
 async def interagir_com_chat_ws(
@@ -76,6 +101,7 @@ async def interagir_com_chat_ws(
         receita_total=real_metrics["receita_total"],
         despesa_total=real_metrics["despesa_total"],
         saldo=real_metrics["saldo"],
+        detalhes_categoria=real_metrics["detalhes_categoria"],
         fontes=fontes_recuperadas
     )
     
