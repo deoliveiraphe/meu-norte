@@ -10,7 +10,11 @@ if [ ! -f .env ]; then
   cp .env.example .env
 fi
 
-echo "1. Subindo os serviços com Docker Compose..."
+echo "1. Exportando variáveis do .env e subindo serviços..."
+if [ -f .env ]; then
+  # Carrega variáveis do .env ignorando comentários e linhas vazias
+  export $(grep -v '^#' .env | xargs)
+fi
 docker-compose up -d
 
 echo "2. Aguardando serviços (15 segundos para o Postgres e Ollama estabilizarem)..."
@@ -26,6 +30,9 @@ docker exec financeai-backend-ollama-1 ollama pull nomic-embed-text
 echo "4. Rodando Migrations (Alembic) para recriar o BD atualizado..."
 # Garantir que a migration vai para o Backend Container
 docker exec financeai-backend-backend-1 alembic upgrade head || echo "⚠️  Migration Falhou. Revise os Logs e rode manualmente \`docker compose exec backend alembic upgrade head\`"
+
+echo "5. Populando banco com dados iniciais (seed)..."
+docker exec financeai-backend-backend-1 python seed.py || echo "⚠️  Seed Falhou. Revise os Logs e rode manualmente \`docker compose exec backend python seed.py\`"
 
 echo "=== ✅ FinanceAI Iniciado com Sucesso! ==="
 echo ""

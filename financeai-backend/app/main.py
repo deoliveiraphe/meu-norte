@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 
 app = FastAPI(
-    title="FinanceAI API",
-    description="Backend para plataforma de gestão financeira com assistente IA.",
+    title="Meu Norte API",
+    description="Backend para plataforma de organização financeira com assistente IA.",
     version="1.0.0"
 )
 

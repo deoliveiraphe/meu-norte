@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, asc
 from sqlalchemy.orm import joinedload
 from typing import List
+import re
 
 from app.db.session import get_db
 from app.api.deps import get_current_active_user
@@ -84,16 +85,46 @@ async def atualizar_lancamento(
                 Lancamento.parcela_group_id == db_obj.parcela_group_id,
                 Lancamento.user_id == current_user.id
             )
+            .order_by(asc(Lancamento.id))  # Garante ordem de criação
         )
         group_objs = group_result.scalars().all()
-        
+        total = len(group_objs)
+
         # Ignora datas para não encavalar todos os meses das parcelas no mesmo dia
         update_data.pop("data_vencimento", None)
         update_data.pop("data_pagamento", None)
-        
-        for obj in group_objs:
+
+        # Extrai nome base removendo sufixo "(N/T)" se presente
+        base_descricao = None
+        if "descricao" in update_data:
+            raw_desc = update_data.pop("descricao") or ""
+            base_descricao = re.sub(r'\s*\(\d+/\d+\)$', '', raw_desc).strip()
+
+        # Extrai observação base removendo "- Última Parcela" ou "Última Parcela" se presente
+        base_obs = None
+        update_obs = False
+        if "observacoes" in update_data:
+            update_obs = True
+            raw_obs = update_data.pop("observacoes") or ""
+            base_obs = re.sub(r'\s*-?\s*Última Parcela$', '', raw_obs).strip() or None
+
+        for i, obj in enumerate(group_objs):
+            is_last = (i == total - 1)
+
             for field, value in update_data.items():
                 setattr(obj, field, value)
+
+            # Reconstrói descrição com numeração correta para cada parcela
+            if base_descricao is not None:
+                obj.descricao = f"{base_descricao} ({i + 1}/{total})"
+
+            # Reconstrói observações preservando "Última Parcela" apenas no último item
+            if update_obs:
+                if is_last:
+                    obj.observacoes = f"{base_obs} - Última Parcela" if base_obs else "Última Parcela"
+                else:
+                    obj.observacoes = base_obs  # Pode ser None (limpa o campo)
+
             # Agenda re-indexação de tudo do grupo
             indexar_lancamento.delay(obj.id, current_user.id)
     else:

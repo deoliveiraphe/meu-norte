@@ -3,12 +3,14 @@ export interface Transaction {
   descricao: string;
   categoria: string;
   categoriaEmoji: string;
-  tipo: 'receita' | 'despesa';
+  tipo: 'receita' | 'despesa' | 'renegociacao';
   vencimento: string;
   pagamento: string | null;
   valor: number;
   status: 'pago' | 'pendente' | 'vencido';
   recorrencia: string;
+  observacoes?: string;
+  parcela_group_id?: string;
 }
 
 export interface Bill {
