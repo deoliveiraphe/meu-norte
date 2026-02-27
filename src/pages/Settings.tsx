@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Pencil, Trash2, Settings as SettingsIcon, LayoutGrid, AlertCircle, User, Mail, ShieldCheck, Lock, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/components/ui/sonner';
 
 interface Category {
     id: number;
@@ -105,7 +106,7 @@ export default function Settings() {
                 await api.delete(`/categorias/${id}`);
                 await loadCategories();
             } catch (err: any) {
-                alert(err.message || "Erro ao excluir categoria.");
+                toast.error(err.message || "Erro ao excluir categoria.");
             }
         }
     };

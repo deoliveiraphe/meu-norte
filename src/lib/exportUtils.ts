@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { toast } from '@/components/ui/sonner';
 import { formatCurrency, type Transaction } from '@/data/mockData';
 
 export function exportToPDF(transactions: Transaction[], mes: string) {
@@ -70,6 +71,7 @@ export function exportToPDF(transactions: Transaction[], mes: string) {
     });
 
     doc.save(`financeai-lancamentos-${mes}.pdf`);
+    toast.success('PDF exportado com sucesso!');
 }
 
 export function exportToExcel(transactions: Transaction[], mes: string) {
@@ -94,6 +96,7 @@ export function exportToExcel(transactions: Transaction[], mes: string) {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, `Lançamentos ${mes}`);
     XLSX.writeFile(workbook, `financeai-lancamentos-${mes}.xlsx`);
+    toast.success('Excel exportado com sucesso!');
 }
 
 export async function compartilharResumo(transactions: Transaction[], mes: string) {
@@ -115,6 +118,6 @@ export async function compartilharResumo(transactions: Transaction[], mes: strin
         await navigator.share({ title: `Meu Norte — ${mes}`, text: texto });
     } else {
         await navigator.clipboard.writeText(texto);
-        alert('Resumo copiado para a área de transferência!');
+        toast.success('Resumo copiado para a área de transferência! 📋');
     }
 }
