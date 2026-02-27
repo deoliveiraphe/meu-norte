@@ -10,7 +10,7 @@
 
 **Meu Norte** é uma aplicação web completa de controle financeiro pessoal que combina uma interface moderna com um assistente de IA local. O sistema permite gerenciar lançamentos (receitas, despesas e renegociações), visualizar relatórios analíticos em tempo real e conversar com um assistente financeiro powered por LLM — tudo sem depender de APIs externas pagas.
 
-### 🎯 Destaques para Portfólio
+### 🎯 Destaques
 
 - **IA On-Premise**: Integração com Ollama (llama3.2) e RAG com embeddings vectoriais via pgvector
 - **Arquitetura Event-Driven**: Celery + Redis para indexação assíncrona de lançamentos
