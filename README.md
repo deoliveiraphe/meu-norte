@@ -211,7 +211,7 @@ Acesse: `http://localhost:5173`
 **Pedro Oliveira**  
 Backend & Data Engineer | Python · FastAPI · PostgreSQL · IA/ML
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/deoliveiraphe)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin)]([https://linkedin.com/in/deoliveiraphe](https://www.linkedin.com/in/pedro-oliveira-270a34131/))
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github)](https://github.com/deoliveiraphe)
 
 ---
