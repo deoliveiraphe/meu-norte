@@ -1,146 +1,85 @@
-# 🚀 Deploy — Meu Norte
+# 🚀 Guia de Deploy Gratuito em Nuvem — Meu Norte
 
-## Ambientes
+Este guia orienta passo a passo o deploy **100% gratuito** de toda a infraestrutura do **Meu Norte** utilizando serviços Modern Cloud (Serverless e PaaS).
 
-| Ambiente | Endereço | Descrição |
-|----------|----------|-----------|
-| Local Dev | `http://localhost:5173` | Vite dev server |
-| Backend Dev | `http://localhost:8000` | Uvicorn local |
-| Produção | Configurável | VPS + Nginx + PM2 |
-
----
-
-## Deploy Local (Docker Compose)
-
-### Requisitos
-- Docker Engine 24+
-- Docker Compose v2+
-- Ollama instalado no host
-
-### 1. Variáveis de Ambiente
-
-Crie `financeai-backend/.env`:
-```env
-DB_PASSWORD=suasenhasegura
-SECRET_KEY=chave-secreta-jwt-muito-longa-aqui
-POSTGRES_USER=postgres
-POSTGRES_DB=financeai
-```
-
-### 2. Subir a stack completa
-```bash
-cd financeai-backend
-docker compose up -d
-```
-
-Serviços que sobem:
-- `postgres` — PostgreSQL 15 + pgvector
-- `redis` — Redis 7 (broker do Celery)
-- `backend` — FastAPI (porta 8000)
-- `celery_worker` — Worker de indexação
-
-### 3. Verificar logs
-```bash
-docker compose logs -f backend
-docker compose logs -f celery_worker
-```
-
-### 4. Frontend
-```bash
-cd ..
-npm run dev   # desenvolvimento
-npm run build # produção → dist/
-```
+A arquitetura final será dividida nos seguintes serviços:
+- **Frontend (React)**: Vercel
+- **Backend (FastAPI)**: Render (Web Service)
+- **Background Worker (Celery)**: Render (Background Worker)
+- **Banco de Dados (PostgreSQL + pgvector)**: Supabase
+- **Mensageria (Redis)**: Upstash
+- **AI / LLMs**: Groq (Streaming LLaMA 3) e Google Gemini API (Embeddings 768d)
 
 ---
 
-## Deploy em Produção (VPS)
+## 1. Banco de Dados com Supabase (PostgreSQL)
 
-### Backend (PM2 + Gunicorn)
+O Supabase oferece um PostgreSQL gerenciado com a extensão `pgvector` pré-instalada, ideal para nossa RAG.
 
-```bash
-# Instalar dependências
-pip install -r requirements.txt
+1. Crie uma conta no [Supabase](https://supabase.com/).
+2. Clique em **"New Project"**.
+3. Escolha uma senha segura para o banco de dados (guarde-a).
+4. Em **Project Settings > Database**, role até a seção **Connection String** e selecione o formato **URI**.
+5. Copie a URI. Ela será algo parecido com: `postgresql://postgres.[sua-ref]:[sua-senha]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`.
 
-# Rodar migrations
-alembic upgrade head
+> **⚠️ IMPORTANTE para Asyncpg:** Como nosso backend usa a biblioteca assíncrona `asyncpg`, você precisa alterar o schema da URI do supabase de `postgresql://` para `postgresql+asyncpg://` nas suas variáveis de ambiente finais.
 
-# Iniciar com Gunicorn
-gunicorn app.main:app \
-  -w 4 \
-  -k uvicorn.workers.UvicornWorker \
-  --bind 0.0.0.0:8000
+## 2. Mensageria com Upstash (Redis)
 
-# Celery worker
-celery -A app.worker worker --loglevel=info
-```
+O Celery necessita de um corretor de mensagens (Message Broker). O Upstash oferece redis Serverless na Free Tier perfeito para tarefas agendadas e WebSocket do RAG.
 
-### Frontend (Nginx)
+1. Crie uma conta no [Upstash](https://upstash.com/).
+2. Clique em **"Create Database"** na seção Redis.
+3. Escolha a região mais próxima da API (EUA costuma ser melhor caso o Render suba seu Web Service por lá). Ative o TLS (opção padrão).
+4. Abaixo de **Connect to your database**, role até encontrar a aba **URI**.
+5. Mude a flag/biblioteca para `ioredis` ou `Python (redis-py)` e copie a string de conexão completa que começa com `rediss://`. *Atenção: o 's' duplo em rediss:// indica conexão segura SSL.*
 
-```nginx
-server {
-    listen 80;
-    server_name meu-norte.com;
+## 3. Chaves das APIs de Inteligência Artificial
 
-    root /var/www/finai-mente/dist;
-    index index.html;
+Nossa aplicação abandonou servidores locais exigentes de GPU (Ollama) para rodar a IA através de Web APIs gratuitas.
 
-    # SPA fallback
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
+- **Groq API (O Cérebro da Inteligência/Chat):**
+  - Vá em [Groq Console](https://console.groq.com/keys) e crie sua API Key (`gsk_...`).
+- **Google GenAI / Gemini (Responsável por transformar textos em vetores Matemáticos):**
+  - Vá em [Google AI Studio](https://aistudio.google.com/app/apikey) e crie uma chave (`AIzaSy...`).
 
-    # Proxy para API
-    location /api/ {
-        proxy_pass http://localhost:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
-}
-```
+## 4. Deploy do Backend (Render.com)
 
-### Build do Frontend para Produção
-```bash
-# Configurar URL da API
-echo "VITE_API_URL=https://api.meu-norte.com/api/v1" > .env.production
+O repositório já contém um arquivo `render.yaml` na raiz do backend que descreve via IaC (Infrastructure as Code) como nosso sistema precisa subir.
 
-npm run build
-# Artefato em ./dist/
-```
+1. Faça login no [Render](https://render.com/).
+2. No Dashboard, clique em **New** e selecione **Blueprint**.
+3. Conecte sua conta do GitHub e selecione o repositório (`deoliveiraphe/meu-norte` ou `finai-mente`).
+4. Na tela de configuração das Variáveis de Ambiente, preencha as chaves:
+   - `DATABASE_URL`: Cole a URL do Supabase com prefixo `postgresql+asyncpg://`.
+   - `REDIS_URL`: Cole a URI de conexão segura do Upstash (`rediss://...`).
+   - `SECRET_KEY`: Será gerada automaticamente e aleatoriamente pelo Render!
+   - `GROQ_API_KEY`: Cole a chave gerada.
+   - `GEMINI_API_KEY`: Cole a chave gerada.
+5. Selecione a instância *Free* e clique em **Apply**. O Render construirá e iniciará ambos a API e o Celery Worker de forma autônoma.
+6. Copie a URL do serviço final gerada pelo Render (ex: `https://meu-norte-api-xp2s.onrender.com`).
 
----
+*(A primeira subida pode demorar alguns minutos. Fique de olho no log do deploy).*
 
-## Checklist de Deploy
+> **⚠️ Criando a Primeira Conta (Migração e Seed):** Diferente do local, no cloud você deve acessar a rota administrativa do banco na sua API para preencher a primeira conta (que não estará populada e migrada no banco Supabase puro). Pelo terminal logado na Render digite `alembic upgrade head` ou faça login via painel (Swagger/Frontend).
 
-- [ ] `.env` configurado com secrets seguros
-- [ ] `SECRET_KEY` com pelo menos 32 caracteres aleatórios
-- [ ] Migrations aplicadas (`alembic upgrade head`)
-- [ ] Seed executado (`python seed.py`)
-- [ ] Ollama rodando com modelos baixados
-- [ ] Celery worker rodando
-- [ ] SSL/HTTPS configurado (Let's Encrypt)
-- [ ] Backup do PostgreSQL agendado
+## 5. Deploy do Frontend (Vercel)
 
----
+Já que seu backend está publicado na nuvem com um link público HTTPS (Gerado pelo Render), agora subimos o projeto em React (Vite).
 
-## Geração de SECRET_KEY Segura
+1. No código `.env` da pasta do frontend, altere a URL que sua aplicação usa para se comunicar com o Render.
+   Mude de `http://localhost:8000/api/v1` para `https://[SUA-URL-DO-RENDER.COM]/api/v1`.
+2. Commit (git commit) essa alteração e faça um push para a main do GitHub.
+3. Faça login na [Vercel](https://vercel.com/) com a sua conta do GitHub.
+4. Clique em **Add New... > Project**.
+5. Importe o mesmo repositório do "Meu Norte".
+6. Na configuração do projeto:
+   - Framework Preset: **Vite**
+   - Root Directory: O diretório onde está o `package.json` dependendo da forma que estruturou (se as pastas `src`/`package.json` moram no root ou estão sub alocadas).
+7. Clique em **Deploy**.
 
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
-```
+O arquivo `vercel.json` na raiz da pasta que enviamos já avisará os servidores para encaminhar requisições em rotas virtuais (SPA fallback) blindando o usuário da página 404!
 
 ---
 
-## Variáveis de Ambiente — Referência Completa
-
-| Variável | Descrição | Padrão |
-|----------|-----------|--------|
-| `DATABASE_URL` | URL do PostgreSQL | obrigatório |
-| `REDIS_URL` | URL do Redis | `redis://redis:6379` |
-| `OLLAMA_URL` | URL do Ollama | `http://ollama:11434` |
-| `SECRET_KEY` | Chave JWT | obrigatório |
-| `ALGORITHM` | Algoritmo JWT | `HS256` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiração do token | `1440` (24h) |
-| `DB_PASSWORD` | Senha do PostgreSQL | obrigatório |
+**Sucesso! 🎉 Você tem uma aplicação bancária IA robusta rodando 100% cloud de forma gratuita!**
