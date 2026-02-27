@@ -5,7 +5,7 @@ from sqlalchemy import select
 from app.db.session import AsyncSessionLocal
 from app.models.lancamento import Lancamento
 from app.models.embedding import FinanceEmbedding
-from app.services.llm.ollama_client import ollama_client
+from app.services.llm.gemini_client import gemini_client
 from app.services.tasks.worker import celery_app
 from app.services.finance.indexer import formatar_para_embedding
 
@@ -24,7 +24,7 @@ async def processar_indexacao(lancamento_id: int, user_id: int):
         texto = formatar_para_embedding(lancamento)
         
         # Chama a API do Ollama (Async)
-        vetor = await ollama_client.get_embedding(texto)
+        vetor = await gemini_client.embed(texto)
         
         # Verifica se já existe embedding para atulizar, ou cria novo
         res_emb = await session.execute(

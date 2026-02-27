@@ -1,0 +1,51 @@
+services:
+  # Servidor FastAPI
+  - type: web
+    name: meunorte-api
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "alembic upgrade head && gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+
+  # Trabalhador Assíncrono Celery
+  - type: worker
+    name: meunorte-worker
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A app.services.tasks.worker worker --loglevel=info -c 2"
+    envVars:
+      - key: DATABASE_URL
+        fromService:
+          type: web
+          name: meunorte-api
+          envVarKey: DATABASE_URL
+      - key: REDIS_URL
+        fromService:
+          type: web
+          name: meunorte-api
+          envVarKey: REDIS_URL
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: meunorte-api
+          envVarKey: SECRET_KEY
+      - key: GROQ_API_KEY
+        fromService:
+          type: web
+          name: meunorte-api
+          envVarKey: GROQ_API_KEY
+      - key: GEMINI_API_KEY
+        fromService:
+          type: web
+          name: meunorte-api
+          envVarKey: GEMINI_API_KEY
