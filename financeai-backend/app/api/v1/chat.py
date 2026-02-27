@@ -40,8 +40,15 @@ async def criar_conversa(
     nova_conversa = Conversa(user_id=current_user.id, titulo=conversa_in.titulo or "Nova Conversa")
     db.add(nova_conversa)
     await db.commit()
-    await db.refresh(nova_conversa)
-    return nova_conversa
+    
+    # Recarregar com a cláusula eager (selectinload) para evitar o erro Pydantic/MissingGreenlet nas 'mensagens'
+    result = await db.execute(
+        select(Conversa)
+        .options(selectinload(Conversa.mensagens))
+        .filter(Conversa.id == nova_conversa.id)
+    )
+    conversa_completa = result.scalars().first()
+    return conversa_completa
 
 @router.get("/conversas", response_model=List[ConversaResponse])
 async def listar_conversas(

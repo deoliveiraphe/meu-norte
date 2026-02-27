@@ -15,7 +15,67 @@ from calendar import monthrange
 from app.models.lancamento import Lancamento
 
 from sqlalchemy.orm import aliased
+import uuid
+from dateutil.relativedelta import relativedelta
 from app.models.categoria import Categoria
+
+async def _criar_lancamentos_ia(extracao: dict, user_id: int, db: AsyncSession, websocket: WebSocket) -> str:
+    # Ler os dados extraídos pelo json schema
+    nome = extracao.get("nome", "Lançamento via IA")
+    valor = float(extracao.get("valor", 0.0))
+    tipo = extracao.get("tipo", "despesa")
+    data_inicial_str = extracao.get("data_inicial")
+    parcelas = int(extracao.get("parcelas", 1))
+
+    if not data_inicial_str:
+        hoje = date.today()
+        data_inicial = hoje
+    else:
+        try:
+            from datetime import datetime
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+        except Exception:
+            data_inicial = date.today()
+
+    # Buscar categoria "Outros" como fallback ou a primeira do tipo correspondente
+    result_cat = await db.execute(select(Categoria).filter(Categoria.tipo == tipo).limit(1))
+    categoria = result_cat.scalars().first()
+    cat_id = categoria.id if categoria else (9 if tipo == 'receita' else 8)
+
+    group_id = str(uuid.uuid4()) if parcelas > 1 else None
+    
+    for i in range(parcelas):
+        data_parcela = data_inicial + relativedelta(months=i)
+        desc_parcela = f"{nome} ({i+1}/{parcelas})" if parcelas > 1 else nome
+        obs = "Criado pelo Assistente IA"
+        if parcelas > 1 and i == parcelas - 1:
+            obs += " - Última Parcela"
+            
+        lanc = Lancamento(
+            user_id=user_id,
+            tipo=tipo,
+            descricao=desc_parcela,
+            valor=valor,
+            data_vencimento=data_parcela,
+            categoria_id=cat_id,
+            observacoes=obs,
+            is_pago=False,
+            parcela_group_id=group_id
+        )
+        db.add(lanc)
+        
+    await db.commit()
+    
+    # Notificar websocket com o resultado processado pelo backend
+    msg_sucesso = f"Compreendido! Acabei de registrar '{nome}' ({tipo}) no valor de R$ {valor:,.2f}"
+    if parcelas > 1:
+        msg_sucesso += f" parcelado em {parcelas} vezes a partir de {data_inicial.strftime('%d/%m/%Y')}."
+    else:
+        msg_sucesso += f" para o dia {data_inicial.strftime('%d/%m/%Y')}."
+        
+    await websocket.send_text(json.dumps({"type": "token", "content": msg_sucesso}))
+    await websocket.send_text(json.dumps({"type": "done", "content": "Sucesso"}))
+    return msg_sucesso
 
 async def get_real_user_context(user_id: int, db: AsyncSession) -> dict:
     hoje = date.today()
@@ -80,6 +140,16 @@ async def interagir_com_chat_ws(
     websocket: WebSocket,
     db: AsyncSession
 ) -> str:
+    hoje = date.today()
+    # 0. Avaliar Intenção Proativa (Criar Lançamento Automático) usando Function Calling nativo Mockado em JSON Format
+    await websocket.send_json({"type": "status", "content": "Interpretando comando..."})
+    prompt_intent = prompt_builder.construir_prompt_extracao(pergunta, hoje.month, hoje.year)
+    extracao = await ollama_client.generate_json(prompt_intent)
+    
+    if extracao and extracao.get("intencao_de_criar") is True:
+        await websocket.send_json({"type": "status", "content": "Registrando no banco de dados..."})
+        return await _criar_lancamentos_ia(extracao, user_id, db, websocket)
+
     # 1. Obter os embeddings (assíncrono)
     await websocket.send_json({"type": "status", "content": "Analisando contexto..."})
     query_vector = await ollama_client.get_embedding(pergunta)

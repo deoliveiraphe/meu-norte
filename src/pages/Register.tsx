@@ -38,7 +38,7 @@ export default function Register() {
                 nome: nome.trim(),
             };
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/auth/register`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api/v1`}/auth/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api/v1`;
 
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
     const token = localStorage.getItem('@MeuNorte:token');
@@ -18,6 +18,12 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
     });
 
     if (!response.ok) {
+        // Token expirado ou inválido — limpa sessão e redireciona ao login
+        if (response.status === 401) {
+            localStorage.removeItem('@MeuNorte:token');
+            window.location.href = '/login';
+            throw new Error('Sessão expirada. Faça login novamente.');
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Erro na requisição da API');
     }

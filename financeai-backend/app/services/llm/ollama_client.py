@@ -28,6 +28,27 @@ class OllamaClient:
                         if "response" in data:
                             yield data["response"]
 
+    async def generate_json(self, prompt: str, system: str = None) -> dict:
+        """Gera resposta em formato JSON via API do Ollama"""
+        payload = {
+            "model": self.chat_model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json"
+        }
+        if system:
+            payload["system"] = system
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{self.base_url}/api/generate", json=payload, timeout=60.0)
+            response.raise_for_status()
+            data = response.json()
+            import json
+            try:
+                return json.loads(data.get("response", "{}"))
+            except json.JSONDecodeError:
+                return {}
+
     async def get_embedding(self, text: str) -> List[float]:
         """Gera embedding vetorial do texto (assíncrono)"""
         payload = {

@@ -19,13 +19,13 @@ export function useChatWebSocket(activeConvId: number | null) {
         if (!activeConvId) return;
 
         // Recupera o token do LocalStorage injetado pela rota de Login.
-        const token = localStorage.getItem('token') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4MDM0MzU4NzMsInN1YiI6ImFkbWluQGZpbmFuY2VhaS5jb20ifQ.xcgFKlnxUUzRwnF61SYgY6aL7dw3KdlJ49j3blNu0Xw';
+        const token = localStorage.getItem('@MeuNorte:token');
         if (!token) {
             console.error("Token JWT não encontrado. O Websocket não poderá conectar.");
             return;
         }
 
-        const wsUrl = `ws://localhost:8000/api/v1/chat/ws/${activeConvId}?token=${token}`;
+        const wsUrl = `ws://${window.location.hostname}:8000/api/v1/chat/ws/${activeConvId}?token=${token}`;
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {

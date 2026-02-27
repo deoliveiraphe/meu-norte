@@ -12,7 +12,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,9 +44,11 @@ services:
       OLLAMA_URL: http://ollama:11434
       SECRET_KEY: ${SECRET_KEY}
       ALGORITHM: HS256
-      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      ACCESS_TOKEN_EXPIRE_MINUTES: 1440
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     volumes:
       - .:/app
 
@@ -61,6 +63,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@postgres/financeai
       REDIS_URL: redis://redis:6379
       OLLAMA_URL: http://ollama:11434
+    env_file:
+      - .env
 
   flower:
     image: mher/flower

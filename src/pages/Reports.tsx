@@ -2,9 +2,12 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download, FileSpreadsheet, Share2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Share2, TrendingUp, TrendingDown } from 'lucide-react';
 import { formatCurrency } from '@/data/mockData';
 import { api } from '@/lib/api';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, RadialBarChart, RadialBar, LineChart, Line,
@@ -76,6 +79,89 @@ export default function Reports() {
 
   // Adaptador Radial Poupança
   const savingsGauge = [{ name: 'Taxa', value: indicadores.taxa_poupanca_perc, fill: '#00C896' }];
+
+  const nomeMes = new Date(currentYear, currentMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text(`Meu Norte — Relatório ${nomeMes}`, 14, 16);
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 23);
+
+    // Indicadores
+    doc.setFontSize(11);
+    doc.setTextColor(40);
+    doc.text('Indicadores Financeiros', 14, 33);
+    autoTable(doc, {
+      startY: 37,
+      head: [['Indicador', 'Valor']],
+      body: [
+        ['Taxa de Poupança', `${indicadores.taxa_poupanca_perc}%`],
+        ['Comprometimento de Renda', `${indicadores.comprometimento_renda_perc}%`],
+        ['Total Receitas', formatCurrency(indicadores.total_receitas ?? 0)],
+        ['Total Despesas', formatCurrency(indicadores.total_despesas ?? 0)],
+        ['Saldo do Período', formatCurrency((indicadores.total_receitas ?? 0) - (indicadores.total_despesas ?? 0))],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [27, 58, 107] },
+    });
+
+    // Ranking
+    const afterIndicadores = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(11);
+    doc.text('Ranking de Categorias', 14, afterIndicadores);
+    autoTable(doc, {
+      startY: afterIndicadores + 4,
+      head: [['#', 'Categoria', 'Valor', 'Variação']],
+      body: ranking_categorias.map((c: any, i: number) => [
+        i + 1, c.name, formatCurrency(c.current),
+        c.change !== 0 ? `${c.change > 0 ? '+' : ''}${c.change}%` : '—',
+      ]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [27, 58, 107] },
+    });
+
+    doc.save(`financeai-relatorio-${nomeMes}.pdf`);
+  };
+
+  const handleExportExcel = () => {
+    const wsIndicadores = XLSX.utils.json_to_sheet([
+      { Indicador: 'Taxa de Poupança', Valor: `${indicadores.taxa_poupanca_perc}%` },
+      { Indicador: 'Comprometimento de Renda', Valor: `${indicadores.comprometimento_renda_perc}%` },
+      { Indicador: 'Total Receitas', Valor: indicadores.total_receitas ?? 0 },
+      { Indicador: 'Total Despesas', Valor: indicadores.total_despesas ?? 0 },
+    ]);
+    const wsRanking = XLSX.utils.json_to_sheet(
+      ranking_categorias.map((c: any, i: number) => ({
+        '#': i + 1, Categoria: c.name,
+        Valor: c.current,
+        Variação: c.change !== 0 ? `${c.change > 0 ? '+' : ''}${c.change}%` : '—',
+      }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsIndicadores, 'Indicadores');
+    XLSX.utils.book_append_sheet(wb, wsRanking, 'Ranking Categorias');
+    XLSX.writeFile(wb, `financeai-relatorio-${nomeMes}.xlsx`);
+  };
+
+  const handleCompartilhar = async () => {
+    const texto = [
+      `📊 Meu Norte — Relatório ${nomeMes}`,
+      ``,
+      `📦 Taxa de Poupança: ${indicadores.taxa_poupanca_perc}%`,
+      `💳 Comprometimento: ${indicadores.comprometimento_renda_perc}%`,
+      `📈 Receitas: ${formatCurrency(indicadores.total_receitas ?? 0)}`,
+      `📉 Despesas: ${formatCurrency(indicadores.total_despesas ?? 0)}`,
+    ].join('\n');
+    if (navigator.share) {
+      await navigator.share({ title: `Meu Norte — ${nomeMes}`, text: texto });
+    } else {
+      await navigator.clipboard.writeText(texto);
+      alert('Resumo copiado para a área de transferência!');
+    }
+  };
 
   return (
     <AppLayout>
@@ -216,11 +302,26 @@ export default function Reports() {
       </div >
 
       {/* Export buttons */}
-      < div className="flex flex-wrap gap-3" >
-        <Button variant="outline" className="gap-1.5 text-xs"><Download className="w-4 h-4" /> Exportar PDF</Button>
-        <Button variant="outline" className="gap-1.5 text-xs"><FileSpreadsheet className="w-4 h-4" /> Exportar Excel</Button>
-        <Button variant="outline" className="gap-1.5 text-xs"><Share2 className="w-4 h-4" /> Compartilhar</Button>
-      </div >
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={handleExportPDF}
+          className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-md border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-colors"
+        >
+          <FileText className="w-4 h-4" /> Exportar PDF
+        </button>
+        <button
+          onClick={handleExportExcel}
+          className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-md border border-green-500/30 text-green-500 hover:bg-green-500/10 transition-colors"
+        >
+          <FileSpreadsheet className="w-4 h-4" /> Exportar Excel
+        </button>
+        <button
+          onClick={handleCompartilhar}
+          className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-md border border-blue-500/30 text-blue-500 hover:bg-blue-500/10 transition-colors"
+        >
+          <Share2 className="w-4 h-4" /> Compartilhar
+        </button>
+      </div>
     </AppLayout >
   );
 }

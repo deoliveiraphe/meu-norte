@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Settings as SettingsIcon, LayoutGrid, AlertCircle, User, Mail, ShieldCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, Settings as SettingsIcon, LayoutGrid, AlertCircle, User, Mail, ShieldCheck, Lock, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -32,6 +32,16 @@ export default function Settings() {
     const [tipo, setTipo] = useState<'receita' | 'despesa' | 'renegociacao'>('despesa');
     const [icone, setIcone] = useState('🏷️');
     const [errorMsg, setErrorMsg] = useState('');
+
+    // States troca de senha
+    const [senhaAtual, setSenhaAtual] = useState('');
+    const [novaSenha, setNovaSenha] = useState('');
+    const [confirmarSenha, setConfirmarSenha] = useState('');
+    const [senhaError, setSenhaError] = useState('');
+    const [senhaSuccess, setSenhaSuccess] = useState('');
+    const [showSenhaAtual, setShowSenhaAtual] = useState(false);
+    const [showNovaSenha, setShowNovaSenha] = useState(false);
+    const [savingPassword, setSavingPassword] = useState(false);
 
     const loadCategories = async () => {
         try {
@@ -100,6 +110,35 @@ export default function Settings() {
         }
     };
 
+    const handleChangePassword = async () => {
+        setSenhaError('');
+        setSenhaSuccess('');
+        if (!senhaAtual || !novaSenha || !confirmarSenha) {
+            setSenhaError('Preencha todos os campos.');
+            return;
+        }
+        if (novaSenha.length < 6) {
+            setSenhaError('A nova senha deve ter pelo menos 6 caracteres.');
+            return;
+        }
+        if (novaSenha !== confirmarSenha) {
+            setSenhaError('A nova senha e a confirmação não coincidem.');
+            return;
+        }
+        try {
+            setSavingPassword(true);
+            await api.put('/auth/change-password', { senha_atual: senhaAtual, nova_senha: novaSenha });
+            setSenhaSuccess('Senha alterada com sucesso! ✅');
+            setSenhaAtual('');
+            setNovaSenha('');
+            setConfirmarSenha('');
+        } catch (err: any) {
+            setSenhaError(err.message || 'Erro ao alterar senha.');
+        } finally {
+            setSavingPassword(false);
+        }
+    };
+
     const receitas = categories.filter(c => c.tipo === "receita");
     const despesas = categories.filter(c => c.tipo === "despesa");
     const renegociacoes = categories.filter(c => c.tipo === "renegociacao");
@@ -165,6 +204,89 @@ export default function Settings() {
 
                     <div className="flex items-center gap-2 text-sm bg-success/10 text-success px-3 py-1.5 rounded-full border border-success/20">
                         <ShieldCheck className="w-4 h-4" /> Conta Autenticada
+                    </div>
+                </Card>
+            </div>
+
+            {/* Card Segurança - Troca de Senha */}
+            <div className="mb-8">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-primary" /> Segurança
+                </h3>
+                <Card className="p-6 border border-border bg-card/50">
+                    <p className="text-sm text-muted-foreground mb-5">Altere sua senha de acesso. Use uma senha forte com pelo menos 6 caracteres.</p>
+
+                    {senhaError && (
+                        <div className="mb-4 bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex gap-2 items-center">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" /> {senhaError}
+                        </div>
+                    )}
+                    {senhaSuccess && (
+                        <div className="mb-4 bg-success/10 text-success text-sm p-3 rounded-lg flex gap-2 items-center">
+                            <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> {senhaSuccess}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Senha Atual</label>
+                            <div className="relative">
+                                <Input
+                                    type={showSenhaAtual ? 'text' : 'password'}
+                                    value={senhaAtual}
+                                    onChange={e => setSenhaAtual(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="pr-10 h-11"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSenhaAtual(v => !v)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showSenhaAtual ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nova Senha</label>
+                            <div className="relative">
+                                <Input
+                                    type={showNovaSenha ? 'text' : 'password'}
+                                    value={novaSenha}
+                                    onChange={e => setNovaSenha(e.target.value)}
+                                    placeholder="Mínimo 6 caracteres"
+                                    className="pr-10 h-11"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNovaSenha(v => !v)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showNovaSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirmar Nova Senha</label>
+                            <Input
+                                type="password"
+                                value={confirmarSenha}
+                                onChange={e => setConfirmarSenha(e.target.value)}
+                                placeholder="Repita a nova senha"
+                                className="h-11"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-5 flex justify-end">
+                        <Button
+                            onClick={handleChangePassword}
+                            disabled={savingPassword}
+                            className="bg-primary hover:bg-primary/90 gap-2"
+                        >
+                            <Lock className="w-4 h-4" />
+                            {savingPassword ? 'Salvando...' : 'Alterar Senha'}
+                        </Button>
                     </div>
                 </Card>
             </div>

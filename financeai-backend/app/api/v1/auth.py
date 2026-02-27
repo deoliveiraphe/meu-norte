@@ -45,3 +45,22 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.put("/change-password")
+async def change_password(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    senha_atual = body.get("senha_atual", "")
+    nova_senha  = body.get("nova_senha",  "")
+
+    if not verify_password(senha_atual, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Senha atual incorreta")
+
+    if len(nova_senha) < 6:
+        raise HTTPException(status_code=400, detail="A nova senha deve ter pelo menos 6 caracteres")
+
+    current_user.hashed_password = get_password_hash(nova_senha)
+    await db.commit()
+    return {"detail": "Senha alterada com sucesso"}

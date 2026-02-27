@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Search, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown, CheckCircle2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown, CheckCircle2, TrendingUp, TrendingDown, FileText, FileSpreadsheet, Share2 } from 'lucide-react';
 import { formatCurrency, type Transaction } from '@/data/mockData';
 import { api } from '@/lib/api';
 import { useFinanceStore } from '@/stores/useFinanceStore';
+import { exportToPDF, exportToExcel, compartilharResumo } from '@/lib/exportUtils';
 
 interface Category {
   id: number;
@@ -53,6 +54,7 @@ export default function Transactions() {
 
   // State for Installments (Parcelas)
   const [qtdParcelas, setQtdParcelas] = useState<number>(1);
+  const [ancoraDia, setAncoraDia] = useState<'original' | 'primeiro' | 'ultimo'>('original');
   const [applyToGroup, setApplyToGroup] = useState(false);
 
   // Fetch logic
@@ -130,7 +132,8 @@ export default function Transactions() {
 
   // Filter by Type
   const receitasFiltered = filtered.filter(t => t.tipo === 'receita');
-  const despesasFiltered = filtered.filter(t => t.tipo === 'despesa' || t.tipo === 'renegociacao');
+  const despesasFiltered = filtered.filter(t => t.tipo === 'despesa');
+  const renegociacoesFiltered = filtered.filter(t => t.tipo === 'renegociacao');
 
   // Sorting logic helper
   const sortData = (data: Transaction[]) => {
@@ -178,6 +181,7 @@ export default function Transactions() {
   };
 
   const sortedReceitas = sortData(receitasFiltered);
+  const sortedRenegociacoes = sortData(renegociacoesFiltered);
   const sortedDespesas = sortData(despesasFiltered);
 
   // Pagination logic only for Despesas
@@ -254,6 +258,7 @@ export default function Transactions() {
     setObservacoes('');
     setMesesSelecionados([]);
     setQtdParcelas(1);
+    setAncoraDia('original');
     setApplyToGroup(false);
     setModalOpen(true);
   };
@@ -279,17 +284,30 @@ export default function Transactions() {
     // Tratamento de Desepesa Parcelada
     if (tipoNovo === 'despesa' && !editingTransaction && qtdParcelas > 1) {
       const [anoStr, mesStr, diaStr] = dataInicialStr.split('-');
-      const ano = parseInt(anoStr, 10);
-      const mes = parseInt(mesStr, 10) - 1;
-      const dia = parseInt(diaStr, 10);
+      const anoOriginal = parseInt(anoStr, 10);
+      const mesOriginal = parseInt(mesStr, 10) - 1;
+      const diaOriginal = parseInt(diaStr, 10);
       const groupId = crypto.randomUUID();
 
       for (let i = 0; i < qtdParcelas; i++) {
-        // Incrementa o Mês
-        const novaData = new Date(ano, mes + i, dia);
-        const diaCorrigido = String(novaData.getDate()).padStart(2, '0');
-        const mesCorrigido = String(novaData.getMonth() + 1).padStart(2, '0');
-        const dataParcela = `${novaData.getFullYear()}-${mesCorrigido}-${diaCorrigido}`;
+        // Incrementa o Mês de forma robusta
+        const anoAlvo = anoOriginal + Math.floor((mesOriginal + i) / 12);
+        const mesAlvo = (mesOriginal + i) % 12;
+
+        // Calcula o dia alvo de acordo com a âncora selecionada
+        const ultimoDiaMesAlvo = new Date(anoAlvo, mesAlvo + 1, 0).getDate();
+        let diaAlvo: number;
+        if (ancoraDia === 'primeiro') {
+          diaAlvo = 1;
+        } else if (ancoraDia === 'ultimo') {
+          diaAlvo = ultimoDiaMesAlvo;
+        } else {
+          diaAlvo = Math.min(diaOriginal, ultimoDiaMesAlvo);
+        }
+
+        const diaFormatado = String(diaAlvo).padStart(2, '0');
+        const mesFormatado = String(mesAlvo + 1).padStart(2, '0');
+        const dataParcela = `${anoAlvo}-${mesFormatado}-${diaFormatado}`;
         const descParcela = `${descricao || 'Novo Lançamento'} (${i + 1}/${qtdParcelas})`;
 
         let obsFinal = observacoes || undefined;
@@ -324,8 +342,8 @@ export default function Transactions() {
     // Se houver repetições selecionadas E for receita nova
     if (tipoNovo === 'receita' && !editingTransaction && mesesSelecionados.length > 0) {
       const [anoStr, mesStr, diaStr] = dataInicialStr.split('-');
-      const ano = parseInt(anoStr, 10);
-      const dia = parseInt(diaStr, 10);
+      const anoOriginal = parseInt(anoStr, 10);
+      const diaOriginal = parseInt(diaStr, 10);
       const groupId = crypto.randomUUID();
 
       // Associa as do frontend também ao group id original, e altera a primeira inserida (Index 0)
@@ -334,11 +352,13 @@ export default function Transactions() {
       mesesSelecionados.forEach(mesIndex => {
         // Ignora se o mês selecionado for EXATAMENTE o mês da data inicial
         if (mesIndex + 1 !== parseInt(mesStr, 10)) {
-          // Constrói a data YYYY-MM-DD
-          const novaData = new Date(ano, mesIndex, dia);
-          const diaCorrigido = String(novaData.getDate()).padStart(2, '0');
-          const mesCorrigido = String(novaData.getMonth() + 1).padStart(2, '0');
-          const dataRepeticao = `${novaData.getFullYear()}-${mesCorrigido}-${diaCorrigido}`;
+          // Constrói a data respeitando o último dia do mês
+          const ultimoDiaMesAlvo = new Date(anoOriginal, mesIndex + 1, 0).getDate();
+          const diaAlvo = Math.min(diaOriginal, ultimoDiaMesAlvo);
+
+          const diaFormatado = String(diaAlvo).padStart(2, '0');
+          const mesFormatado = String(mesIndex + 1).padStart(2, '0');
+          const dataRepeticao = `${anoOriginal}-${mesFormatado}-${diaFormatado}`;
 
           payloads.push({
             tipo: tipoNovo,
@@ -392,38 +412,95 @@ export default function Transactions() {
           </Button>
         )}
 
+        {/* Botões de Exportação */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const nomeMes = new Date(currentYear, currentMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+              exportToPDF(filtered, nomeMes);
+            }}
+            className="gap-1.5 whitespace-nowrap border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400"
+            title="Exportar PDF"
+          >
+            <FileText className="w-4 h-4" />
+            <span className="hidden md:inline">PDF</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const nomeMes = new Date(currentYear, currentMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+              exportToExcel(filtered, nomeMes);
+            }}
+            className="gap-1.5 whitespace-nowrap border-green-500/30 text-green-500 hover:bg-green-500/10 hover:text-green-400"
+            title="Exportar Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="hidden md:inline">Excel</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const nomeMes = new Date(currentYear, currentMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+              compartilharResumo(filtered, nomeMes);
+            }}
+            className="gap-1.5 whitespace-nowrap border-blue-500/30 text-blue-500 hover:bg-blue-500/10 hover:text-blue-400"
+            title="Compartilhar Resumo"
+          >
+            <Share2 className="w-4 h-4" />
+            <span className="hidden md:inline">Compartilhar</span>
+          </Button>
+        </div>
+
         <Button onClick={openNewModal} className="bg-accent hover:bg-accent/90 text-accent-foreground gap-1.5 whitespace-nowrap">
           <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo Lançamento</span><span className="sm:hidden">Novo</span>
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <Select value={tipoFilter} onValueChange={setTipoFilter}>
-          <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            <SelectItem value="receita">Receita</SelectItem>
-            <SelectItem value="despesa">Despesa</SelectItem>
-            <SelectItem value="renegociacao">Renegociado</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
-          <SelectTrigger className="w-[140px] h-9 text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Todos">Todos</SelectItem>
-            {apiCategories.map(c => <SelectItem key={c.id} value={c.nome}>{c.icone} {c.nome}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            <SelectItem value="pago">Pago</SelectItem>
-            <SelectItem value="pendente">Pendente</SelectItem>
-            <SelectItem value="vencido">Vencido</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-end gap-3 mb-4 p-3 bg-muted/20 rounded-xl border border-border/40">
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">Tipo</span>
+          <Select value={tipoFilter} onValueChange={setTipoFilter}>
+            <SelectTrigger className="w-[130px] h-9 text-xs bg-background"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="receita">📈 Receita</SelectItem>
+              <SelectItem value="despesa">📉 Despesa</SelectItem>
+              <SelectItem value="renegociacao">🔄 Renegociado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">Categoria</span>
+          <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
+            <SelectTrigger className="w-[150px] h-9 text-xs bg-background"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Todos">🗂️ Todas</SelectItem>
+              {apiCategories.map(c => <SelectItem key={c.id} value={c.nome}>{c.icone} {c.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">Status</span>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[130px] h-9 text-xs bg-background"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="pago">✅ Pago</SelectItem>
+              <SelectItem value="pendente">⏳ Pendente</SelectItem>
+              <SelectItem value="vencido">🔴 Vencido</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {(tipoFilter !== 'todos' || categoriaFilter !== 'Todos' || statusFilter !== 'todos') && (
+          <button
+            onClick={() => { setTipoFilter('todos'); setCategoriaFilter('Todos'); setStatusFilter('todos'); }}
+            className="h-9 px-3 text-[11px] font-medium text-muted-foreground hover:text-foreground border border-border/60 rounded-md bg-background hover:bg-secondary transition-colors self-end"
+          >
+            ✕ Limpar filtros
+          </button>
+        )}
       </div>
 
       {/* Summary */}
@@ -480,8 +557,8 @@ export default function Transactions() {
           <div>
             <p className="text-[11px] md:text-sm font-medium text-muted-foreground mb-1 truncate">Total Pendente</p>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4 text-warning" />
+              <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-orange-500" />
               </div>
             </div>
           </div>
@@ -522,8 +599,8 @@ export default function Transactions() {
           <div>
             <p className="text-[11px] md:text-sm font-medium text-muted-foreground mb-1 truncate">Total Renegociado</p>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-secondary/80 flex items-center justify-center">
-                <span className="text-muted-foreground font-bold text-lg">≈</span>
+              <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center">
+                <span className="text-warning font-bold text-lg">🔄</span>
               </div>
             </div>
           </div>
@@ -535,11 +612,11 @@ export default function Transactions() {
         </Card>
       </div>
 
-      {/* Tabelas de Receitas e Despesas */}
-      < div className="grid grid-cols-1 xl:grid-cols-12 gap-6" >
+      {/* Tabelas: Receitas, Renegociações e Despesas */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
 
         {/* Receitas Table (Menor, sem paginação) */}
-        < Card className="card-shadow overflow-hidden xl:col-span-4 self-start" >
+        <Card className="card-shadow overflow-hidden xl:col-span-6 self-start">
           <div className="px-4 py-3 border-b border-border bg-success/5 flex justify-between items-center">
             <h3 className="font-semibold text-success flex items-center gap-2">
               <TrendingUp className="w-4 h-4" /> Receitas
@@ -610,10 +687,84 @@ export default function Transactions() {
               </tbody>
             </table>
           </div>
-        </Card >
+        </Card>
+
+        {/* Renegociações Table */}
+        <Card className="card-shadow overflow-hidden xl:col-span-6 self-start">
+          <div className="px-4 py-3 border-b border-border bg-warning/5 flex justify-between items-center">
+            <h3 className="font-semibold text-warning flex items-center gap-2">
+              <span className="text-base">🔄</span> Renegociações
+            </h3>
+            <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
+              {sortedRenegociacoes.length} itens
+            </Badge>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/50">
+                  <th className="w-8 px-3 py-2 text-center">
+                    <Checkbox
+                      checked={selectedTransactions.filter(id => renegociacoesFiltered.some(t => t.id === id)).length === renegociacoesFiltered.length && renegociacoesFiltered.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          const newSelected = [...selectedTransactions, ...renegociacoesFiltered.map(t => t.id)];
+                          setSelectedTransactions(Array.from(new Set(newSelected)));
+                        } else {
+                          setSelectedTransactions(selectedTransactions.filter(id => !renegociacoesFiltered.some(t => t.id === id)));
+                        }
+                      }}
+                    />
+                  </th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none" onClick={() => requestSort('descricao')}>
+                    Descrição {getSortIcon('descricao')}
+                  </th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none" onClick={() => requestSort('valor')}>
+                    Valor {getSortIcon('valor')}
+                  </th>
+                  <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRenegociacoes.length === 0 ? (
+                  <tr><td colSpan={4} className="text-center py-4 text-muted-foreground text-xs">Nenhuma renegociação encontrada.</td></tr>
+                ) : sortedRenegociacoes.map((t) => (
+                  <tr key={t.id} className={`border-b border-border hover:bg-warning/5 transition-colors ${selectedTransactions.includes(t.id) ? 'bg-warning/10' : ''}`}>
+                    <td className="px-3 py-2 text-center">
+                      <Checkbox
+                        checked={selectedTransactions.includes(t.id)}
+                        onCheckedChange={() => toggleSelect(t.id)}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-left w-full max-w-[200px]">
+                      <div className="font-medium text-foreground text-xs truncate">{t.descricao}</div>
+                      {t.observacoes && <div className="text-[10px] text-muted-foreground truncate opacity-80 mt-0.5">{t.observacoes}</div>}
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-warning text-xs">
+                      ≈ {formatCurrency(t.valor)}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <button onClick={() => toggleStatus(t)} title={t.status === 'pago' ? "Desmarcar" : "Marcar como Pago"} className={`p-1 rounded-md transition-colors ${t.status === 'pago' ? 'text-success hover:bg-success/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => openEditModal(t)} title="Editar" className="p-1 rounded-md hover:bg-secondary transition-colors">
+                          <Pencil className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                        <button onClick={() => setTransactionsToDelete([t.id])} title="Excluir" className="p-1 rounded-md hover:bg-destructive/10 transition-colors">
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
 
         {/* Despesas Table */}
-        < Card className="card-shadow overflow-hidden xl:col-span-8" >
+        <Card className="card-shadow overflow-hidden xl:col-span-12">
           <div className="px-4 py-3 border-b border-border bg-destructive/5 flex justify-between items-center">
             <h3 className="font-semibold text-destructive flex items-center gap-2">
               <TrendingDown className="w-4 h-4" /> Despesas
@@ -904,14 +1055,47 @@ export default function Transactions() {
                       </span>
                     )}
                   </div>
+                  {qtdParcelas > 1 && (
+                    <div className="col-span-12">
+                      <Label className="text-[13px] font-medium text-muted-foreground mb-1.5 block">Vencimento das Parcelas</Label>
+                      <Select value={ancoraDia} onValueChange={(v) => setAncoraDia(v as 'original' | 'primeiro' | 'ultimo')}>
+                        <SelectTrigger className="h-11 bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="original">📅 Mesmo dia da data escolhida</SelectItem>
+                          <SelectItem value="primeiro">1️⃣ Sempre no 1º dia do mês</SelectItem>
+                          <SelectItem value="ultimo">🔚 Sempre no último dia do mês</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               )}
 
               {tipoNovo === 'receita' && !editingTransaction && (
                 <div className="mt-2 p-4 bg-muted/30 rounded-lg border border-border/50">
-                  <Label className="text-[13px] font-medium text-foreground mb-3 flex items-center gap-2 block">
-                    Repetir nos meses (Opcional)
-                  </Label>
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-[13px] font-medium text-foreground flex items-center gap-2">
+                      Repetir nos meses (Opcional)
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (mesesSelecionados.length === 12) {
+                          setMesesSelecionados([]);
+                        } else {
+                          setMesesSelecionados([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+                        }
+                      }}
+                      className={`text-[11px] font-medium px-3 py-1 rounded-full border transition-all duration-200 ${mesesSelecionados.length === 12
+                        ? 'bg-success text-white border-success shadow-sm'
+                        : 'bg-background border-border text-muted-foreground hover:border-success/50 hover:text-success'
+                        }`}
+                    >
+                      {mesesSelecionados.length === 12 ? '✓ Todos os meses' : 'Todos os meses'}
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {nomesMeses.map((mes, index) => {
                       const isSelected = mesesSelecionados.includes(index);
@@ -940,6 +1124,7 @@ export default function Transactions() {
                   </p>
                 </div>
               )}
+
 
               <div>
                 <Label className="text-[13px] font-medium text-muted-foreground mb-1.5 block">Observações (Opcional)</Label>
