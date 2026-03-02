@@ -14,7 +14,6 @@
 
 ## 📸 Screenshots do Projeto
 
-> _Em breve: adicione aqui os prints do dashboard, chatbot e tela de lançamentos._
 
 <!-- Exemplo de como adicionar prints:
 ![Dashboard](docs/screenshots/dashboard.png)
