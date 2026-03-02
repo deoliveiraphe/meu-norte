@@ -10,7 +10,7 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.lancamento import Lancamento
 from app.models.categoria import Categoria
-from app.schemas.relatorios import RelatorioEstatistico, EvolucaoMensal, CategoriaRanking, Indicadores
+from app.schemas.relatorios import RelatorioEstatistico, EvolucaoMensal, CategoriaRanking, Indicadores, ProjecaoMes
 import calendar
 
 router = APIRouter()
@@ -166,11 +166,64 @@ async def obter_relatorio_geral(
 
     indicadores = Indicadores(
         taxa_poupanca_perc=round(taxa_poupanca, 1),
-        comprometimento_renda_perc=round(comp_renda, 1)
+        comprometimento_renda_perc=round(comp_renda, 1),
+        total_receitas=round(rec_total, 2),
+        total_despesas=round(desp_total, 2),
     )
+
+    # 4. Projeção de Saldo (3 meses reais + 3 projetados)
+    # Busca os últimos 3 meses reais de saldo (receita - despesa)
+    inicio_proj_real = date(target_ano, target_mes, 1) - relativedelta(months=2)
+    stmt_proj = select(
+        extract('year', Lancamento.data_vencimento).label('ano'),
+        extract('month', Lancamento.data_vencimento).label('mes'),
+        Lancamento.tipo,
+        func.sum(Lancamento.valor).label('total')
+    ).where(
+        Lancamento.user_id == current_user.id,
+        Lancamento.data_vencimento >= inicio_proj_real,
+        Lancamento.data_vencimento <= fim_current
+    ).group_by(
+        extract('year', Lancamento.data_vencimento),
+        extract('month', Lancamento.data_vencimento),
+        Lancamento.tipo
+    )
+    result_proj = await db.execute(stmt_proj)
+    mapa_proj = {}
+    for row in result_proj.all():
+        key = f"{int(row.ano)}-{int(row.mes):02d}"
+        if key not in mapa_proj:
+            mapa_proj[key] = {"receita": 0.0, "despesa": 0.0}
+        if row.tipo in ("receita", "despesa"):
+            mapa_proj[key][row.tipo] = float(row.total)
+
+    saldos_reais = []
+    projecao_saldo = []
+    for i in range(2, -1, -1):
+        d = date(target_ano, target_mes, 1) - relativedelta(months=i)
+        key = f"{d.year}-{d.month:02d}"
+        rec = mapa_proj.get(key, {}).get("receita", 0.0)
+        desp = mapa_proj.get(key, {}).get("despesa", 0.0)
+        saldo = round(rec - desp, 2)
+        saldos_reais.append(saldo)
+        projecao_saldo.append(ProjecaoMes(
+            month=f"{MESES_ABREV[d.month]}/{str(d.year)[2:]}",
+            saldo=saldo,
+            tipo="real"
+        ))
+
+    media_saldo = sum(saldos_reais) / len(saldos_reais) if saldos_reais else 0.0
+    for i in range(1, 4):
+        d = date(target_ano, target_mes, 1) + relativedelta(months=i)
+        projecao_saldo.append(ProjecaoMes(
+            month=f"{MESES_ABREV[d.month]}/{str(d.year)[2:]}",
+            saldo=round(media_saldo, 2),
+            tipo="proj"
+        ))
 
     return RelatorioEstatistico(
         evolucao=evolucao_list,
         ranking_categorias=ranking_categorias,
-        indicadores=indicadores
+        indicadores=indicadores,
+        projecao_saldo=projecao_saldo,
     )

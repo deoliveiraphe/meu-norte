@@ -1,144 +1,218 @@
-# 🧠 FinAI Mente — Assistente Financeiro com IA
+<img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi" /> <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react" /> <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript" /> <img src="https://img.shields.io/badge/PostgreSQL-pgvector-336791?style=for-the-badge&logo=postgresql" /> <img src="https://img.shields.io/badge/Ollama-LLM-black?style=for-the-badge" /> <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker" />
 
-> Plataforma de **gestão financeira pessoal** com assistente de inteligência artificial integrado, capaz de responder perguntas sobre suas finanças com base em seus próprios dados via RAG (Retrieval-Augmented Generation) local.
+# 💰 Meu Norte — Plataforma Financeira Inteligente
 
-<p align="center">
-  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
-  <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=white"/>
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge&logo=postgresql&logoColor=white"/>
-  <img alt="Docker" src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white"/>
-  <img alt="Ollama" src="https://img.shields.io/badge/LLM-Ollama_Local-black?style=for-the-badge"/>
-</p>
+> **Gestão financeira pessoal full-stack com Inteligência Artificial local**, construída do zero com FastAPI, React e LLMs rodando 100% on-premise via Ollama.
 
 ---
 
-## 📸 Screenshots do Projeto
+## 📌 Sobre o Projeto
 
 
-<!-- Exemplo de como adicionar prints:
-![Dashboard](docs/screenshots/dashboard.png)
-![Chat com IA](docs/screenshots/chat.png)
-![Lançamentos](docs/screenshots/lancamentos.png)
--->
+### 🎯 Destaques
+
+- **IA On-Premise**: Integração com Ollama (llama3.2) e RAG com embeddings vectoriais via pgvector
+- **Arquitetura Event-Driven**: Celery + Redis para indexação assíncrona de lançamentos
+- **Full-Stack TypeScript + Python**: Frontend e backend completamente tipados
+- **Padrão REST + WebSocket**: API RESTful + chat em tempo real via WebSocket
+- **Exportações multiplas**: Geração de PDF e Excel no client-side com jsPDF e SheetJS
 
 ---
 
-## ✨ Funcionalidades
+## 🚀 Stack Tecnológica
 
-- 📊 **Dashboard financeiro** — visualização de receitas, despesas e saldo por período
-- 💬 **Chat com IA** — assistente conversacional que responde perguntas sobre suas finanças usando RAG local
-- 📒 **Gestão de lançamentos** — controle de receitas e despesas por categoria, com suporte a parcelas
-- 🔍 **Busca semântica** — os lançamentos são vetorizados e consultados com similaridade de cosseno via `pgvector`
-- ⚡ **Processamento assíncrono** — indexação de embeddings via workers Celery em background
+### Backend
+| Tecnologia | Uso |
+|------------|-----|
+| **FastAPI** | API REST assíncrona com Python 3.11 |
+| **SQLAlchemy (async)** | ORM com suporte a operações assíncronas |
+| **Alembic** | Migrations de banco de dados versionadas |
+| **PostgreSQL + pgvector** | Banco relacional com suporte a embeddings vetoriais |
+| **Celery + Redis** | Fila de tarefas assíncronas para indexação RAG |
+| **Ollama** | LLM local (llama3.2) + embeddings (nomic-embed-text) |
+| **JWT (python-jose)** | Autenticação stateless via Bearer token |
+| **Passlib + bcrypt** | Hash seguro de senhas |
+
+### Frontend
+| Tecnologia | Uso |
+|------------|-----|
+| **React 18** | SPA com hooks modernos e Context API |
+| **TypeScript 5** | Tipagem estática completa |
+| **Vite** | Build tool e dev server ultrarrápido |
+| **Tailwind CSS** | Estilização utility-first |
+| **shadcn/ui** | Componentes acessíveis e customizáveis |
+| **Recharts** | Gráficos interativos (AreaChart, PieChart, RadialBar) |
+| **Zustand** | State management global leve |
+| **jsPDF + SheetJS** | Exportação de PDF e Excel no browser |
+| **Sonner** | Sistema de notificações toast |
+
+### Infraestrutura
+| Tecnologia | Uso |
+|------------|-----|
+| **Docker + Docker Compose** | Orquestração completa da stack |
+| **Nginx** (opcional) | Proxy reverso para produção |
 
 ---
 
 ## 🏗️ Arquitetura
 
 ```
-┌─────────────────────────────────────────────┐
-│                  Frontend                    │
-│          React + Vite + TypeScript           │
-│          Shadcn/UI + Tailwind CSS            │
-└──────────────────┬──────────────────────────┘
-                   │ REST API + WebSocket
-┌──────────────────▼──────────────────────────┐
-│                  Backend                     │
-│         FastAPI (Async) + Python 3.12        │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │  Auth (JWT)  │  │   RAG Pipeline     │   │
-│  └──────────────┘  │  LangChain+Ollama  │   │
-│  ┌──────────────┐  └────────────────────┘   │
-│  │ Celery Worker│  ┌────────────────────┐   │
-│  │ (Embeddings) │  │ PostgreSQL+pgvector│   │
-│  └──────────────┘  └────────────────────┘   │
-└─────────────────────────────────────────────┘
-         │ Docker Compose (orquestração local)
-┌────────▼──────────────────────────────┐
-│  postgres | redis | ollama | flower   │
-└───────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        FRONTEND (Vite/React)                │
+│  Dashboard │ Lançamentos │ Relatórios │ Assistente │ Config  │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ REST API + WebSocket
+┌──────────────────────▼──────────────────────────────────────┐
+│                     BACKEND (FastAPI)                       │
+│  /auth  /lancamentos  /relatorios  /dashboard  /chat        │
+└──────┬───────────────────────┬──────────────────────────────┘
+       │                       │
+┌──────▼──────┐     ┌──────────▼───────────────────────────────┐
+│ PostgreSQL  │     │           Celery Worker                  │
+│  + pgvector │     │  Indexação assíncrona → embeddings       │
+└─────────────┘     └────────────────┬─────────────────────────┘
+       ▲                             │
+       │                    ┌────────▼──────────┐
+       └────────────────────│   Ollama (local)  │
+                            │  llama3.2         │
+                            │  nomic-embed-text │
+                            └───────────────────┘
 ```
 
 ---
 
-## 🛠️ Stack Tecnológica
+## ✨ Funcionalidades
 
-| Camada | Tecnologia |
-|---|---|
-| **Backend** | FastAPI (Async), Python 3.12, SQLAlchemy, Alembic |
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Shadcn/UI |
-| **Banco de dados** | PostgreSQL 15 + `pgvector` |
-| **IA / LLM** | Ollama local (`llama3.2` + `nomic-embed-text`) |
-| **Filas** | Redis + Celery + Flower |
-| **Infraestrutura** | Docker + Docker Compose |
+### 📊 Dashboard
+- KPIs em tempo real: Receita, Despesas, Renegociações, Saldo, A Vencer
+- Gráfico de Fluxo de Caixa por dia do mês
+- Despesas por categoria com barras de progresso
+- Card de vencimentos com alertas visuais (vencido 🔴 / urgente ⚡ / hoje ⚠️)
+
+### 💸 Lançamentos
+- CRUD completo de lançamentos financeiros
+- Suporte a **parcelas** com âncora de data (dia original, 1º ou último do mês)
+- Receitas recorrentes mensais com seletor de meses ("Todos os meses")
+- Três quadros separados: Receitas | Renegociações | Despesas
+- Filtros com labels: Tipo, Categoria, Status + botão Reset
+- **Exportação**: PDF com tabela colorida, Excel (.xlsx), Compartilhar
+
+### 📈 Relatórios
+- Evolução patrimonial — últimos 12 meses (gráfico de área)
+- Distribuição de despesas por categoria (donut chart)
+- Ranking de categorias com variação percentual vs. mês anterior
+- Taxa de poupança (gauge radial) e comprometimento de renda
+- **Projeção de saldo**: 3 meses reais + 3 meses projetados (média)
+- Exportação em PDF e Excel
+
+### 🤖 Assistente IA
+- Chat em tempo real via WebSocket
+- RAG (Retrieval-Augmented Generation) sobre os lançamentos do usuário
+- Embeddings vetoriais via `nomic-embed-text` armazenados em pgvector
+- LLM local sem custo de API: `llama3.2` via Ollama
+
+### ⚙️ Configurações
+- Gestão de categorias personalizadas (com ícone e tipo)
+- Troca de senha com validação frontend + backend
+- Perfil do usuário autenticado
 
 ---
 
-## 🚀 Como Rodar Localmente
+## 🔐 Segurança
+
+- Autenticação JWT com expiração de 24h
+- Senhas armazenadas com hash bcrypt (cost factor 12)
+- Todas as rotas protegidas por `get_current_user` (OAuth2 Bearer)
+- Redirecionamento automático ao `/login` em caso de token expirado (401)
+- Troca de senha validada contra a senha atual antes de atualizar
+
+---
+
+## 📂 Estrutura do Projeto
+
+```
+finai-mente/
+├── src/                          # Frontend React/TypeScript
+│   ├── components/               # Componentes reutilizáveis
+│   │   ├── layout/               # AppLayout, AppSidebar
+│   │   └── ui/                   # shadcn/ui components
+│   ├── contexts/                 # AuthContext
+│   ├── hooks/                    # useChatWebSocket
+│   ├── lib/                      # api.ts, exportUtils.ts
+│   ├── pages/                    # Dashboard, Transactions, Reports...
+│   ├── stores/                   # useFinanceStore (Zustand)
+│   └── data/                     # mockData / types
+│
+└── financeai-backend/            # Backend FastAPI
+    ├── app/
+    │   ├── api/v1/               # Rotas: auth, lancamentos, dashboard...
+    │   ├── core/                 # security.py, config
+    │   ├── db/                   # session.py, migrations (Alembic)
+    │   ├── models/               # SQLAlchemy models
+    │   ├── schemas/              # Pydantic schemas
+    │   └── services/             # llm/, rag/ (pipeline, prompt_builder)
+    ├── docker-compose.yml
+    └── start.sh                  # Entrypoint: migrate + seed + uvicorn
+```
+
+---
+
+## 🐳 Como Rodar Localmente
 
 ### Pré-requisitos
+- Docker e Docker Compose instalados
+- Ollama instalado localmente (`ollama pull llama3.2 && ollama pull nomic-embed-text`)
 
-- [Docker](https://docs.docker.com/get-docker/) e Docker Compose instalados
-- [Node.js](https://nodejs.org/) (versão 18+)
-
-### Passo a passo
-
-**1. Clone o repositório**
+### 1. Clonar o repositório
 ```bash
 git clone https://github.com/deoliveiraphe/finai-mente.git
 cd finai-mente
 ```
 
-**2. Configure as variáveis de ambiente**
+### 2. Configurar variáveis de ambiente
 ```bash
 cd financeai-backend
 cp .env.example .env
-# Edite o .env com uma senha para o banco e uma SECRET_KEY
+# Editar .env com suas credenciais
 ```
 
-**3. Suba toda a infraestrutura com o script de inicialização**
+### 3. Subir o backend
 ```bash
-./start.sh
+docker compose up -d
+# O start.sh roda: alembic upgrade head → seed.py → uvicorn
 ```
 
-O script automaticamente:
-- Inicia todos os containers (`postgres`, `redis`, `ollama`, `celery`)
-- Faz o download dos modelos de IA no Ollama
-- Roda as migrations do banco de dados (`alembic upgrade head`)
-- Inicia o servidor de desenvolvimento do frontend
+### 4. Rodar o frontend
+```bash
+cd ..
+npm install
+npm run dev
+```
 
-### Acesso
-
-| Serviço | URL |
-|---|---|
-| Frontend | `http://localhost:5173` |
-| API Docs (Swagger) | `http://localhost:8000/docs` |
-| Monitor Celery (Flower) | `http://localhost:5555` |
+Acesse: `http://localhost:5173`
 
 ---
 
-## 📁 Estrutura do Projeto
+## 📚 Documentação
 
-```
-finai-mente/
-├── financeai-backend/       # API FastAPI
-│   ├── app/
-│   │   ├── api/             # Endpoints REST
-│   │   ├── models/          # Modelos SQLAlchemy
-│   │   ├── schemas/         # Schemas Pydantic
-│   │   ├── services/        # LLM, RAG, Tasks
-│   │   └── core/            # Auth / Config
-│   ├── docker-compose.yml
-│   └── start.sh
-├── src/                     # Frontend React
-│   ├── components/
-│   ├── pages/
-│   └── hooks/
-└── docs/                    # Documentação técnica
-```
+| Documento | Descrição |
+|-----------|-----------|
+| [Arquitetura](docs/ARCHITECTURE.md) | Visão geral da arquitetura e decisões técnicas |
+| [API Reference](docs/API.md) | Endpoints, schemas e exemplos de uso |
+| [Deploy](docs/DEPLOY.md) | Guia de deploy em produção |
+| [IA & RAG](docs/AI_RAG.md) | Como funciona o assistente com RAG |
+| [Banco de Dados](docs/DATABASE.md) | Modelos, relacionamentos e migrations |
 
 ---
 
-## 📄 Licença
+## 👨‍💻 Autor
 
-Distribuído sob a licença MIT. Consulte o arquivo `LICENSE` para mais informações.
+**Pedro Oliveira**  
+Backend & Data Engineer | Python · FastAPI · PostgreSQL · IA/ML
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/pedro-oliveira-270a34131/)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github)](https://github.com/deoliveiraphe)
+
+---
+
+> *Projeto desenvolvido como demonstração de competências em desenvolvimento full-stack moderno com integração de IA local.*

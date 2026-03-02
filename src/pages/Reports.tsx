@@ -14,28 +14,10 @@ import {
 } from 'recharts';
 import { useState, useEffect } from 'react';
 import { useFinanceStore } from '@/stores/useFinanceStore';
+import { toast } from '@/components/ui/sonner';
 
 const COLORS = ['#1B3A6B', '#00C896', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#14B8A6', '#6B7280'];
 
-const categoryRanking = [
-  { name: 'Moradia', current: 1800, prev: 1800, change: 0 },
-  { name: 'Alimentação', current: 980, prev: 797, change: 23 },
-  { name: 'Transporte', current: 650, prev: 580, change: 12 },
-  { name: 'Saúde', current: 420, prev: 420, change: 0 },
-  { name: 'Contas', current: 367, prev: 350, change: 5 },
-  { name: 'Lazer', current: 350, prev: 410, change: -15 },
-  { name: 'Educação', current: 280, prev: 200, change: 40 },
-  { name: 'Outros', current: 1000, prev: 653, change: 53 },
-];
-
-const projectionData = [
-  { month: 'Jan', saldo: 33453, type: 'real' },
-  { month: 'Fev', saldo: 36100, type: 'proj' },
-  { month: 'Mar', saldo: 38800, type: 'proj' },
-  { month: 'Abr', saldo: 41400, type: 'proj' },
-];
-
-const savingsGauge = [{ name: 'Taxa', value: 31.2, fill: '#00C896' }];
 
 export default function Reports() {
   const { currentMonth, currentYear } = useFinanceStore();
@@ -69,7 +51,7 @@ export default function Reports() {
     );
   }
 
-  const { evolucao, ranking_categorias, indicadores } = data;
+  const { evolucao, ranking_categorias, indicadores, projecao_saldo } = data;
 
   // Adaptador pro Donut
   const donutData = ranking_categorias
@@ -89,11 +71,6 @@ export default function Reports() {
     doc.setFontSize(9);
     doc.setTextColor(120);
     doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 23);
-
-    // Indicadores
-    doc.setFontSize(11);
-    doc.setTextColor(40);
-    doc.text('Indicadores Financeiros', 14, 33);
     autoTable(doc, {
       startY: 37,
       head: [['Indicador', 'Valor']],
@@ -107,8 +84,6 @@ export default function Reports() {
       styles: { fontSize: 9 },
       headStyles: { fillColor: [27, 58, 107] },
     });
-
-    // Ranking
     const afterIndicadores = (doc as any).lastAutoTable.finalY + 10;
     doc.setFontSize(11);
     doc.text('Ranking de Categorias', 14, afterIndicadores);
@@ -122,8 +97,8 @@ export default function Reports() {
       styles: { fontSize: 9 },
       headStyles: { fillColor: [27, 58, 107] },
     });
-
-    doc.save(`financeai-relatorio-${nomeMes}.pdf`);
+    doc.save(`meu-norte-relatorio-${nomeMes}.pdf`);
+    toast.success('PDF do relatório exportado!');
   };
 
   const handleExportExcel = () => {
@@ -143,7 +118,8 @@ export default function Reports() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsIndicadores, 'Indicadores');
     XLSX.utils.book_append_sheet(wb, wsRanking, 'Ranking Categorias');
-    XLSX.writeFile(wb, `financeai-relatorio-${nomeMes}.xlsx`);
+    XLSX.writeFile(wb, `meu-norte-relatorio-${nomeMes}.xlsx`);
+    toast.success('Excel do relatório exportado!');
   };
 
   const handleCompartilhar = async () => {
@@ -159,7 +135,7 @@ export default function Reports() {
       await navigator.share({ title: `Meu Norte — ${nomeMes}`, text: texto });
     } else {
       await navigator.clipboard.writeText(texto);
-      alert('Resumo copiado para a área de transferência!');
+      toast.success('Resumo copiado para a área de transferência! 📋');
     }
   };
 
@@ -289,15 +265,23 @@ export default function Reports() {
         <Card className="p-5 card-shadow">
           <h3 className="text-sm font-semibold text-foreground mb-2">Projeção de Saldo</h3>
           <ResponsiveContainer width="100%" height={130}>
-            <LineChart data={projectionData}>
+            <LineChart data={projecao_saldo}>
               <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: number) => formatCurrency(v)} />
-              <Line type="monotone" dataKey="saldo" stroke="#1B3A6B" strokeWidth={2} strokeDasharray="0" dot={{ r: 3 }} />
+              <Line
+                type="monotone" dataKey="saldo" stroke="#1B3A6B" strokeWidth={2}
+                strokeDasharray="0" dot={{ r: 3 }}
+                name="Real"
+              />
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-[10px] text-muted-foreground text-center mt-1">Projeção baseada nos últimos 3 meses</p>
-          <p className="text-[10px] text-muted-foreground text-center mt-1">Projeção baseada nos últimos 3 meses</p>
+          <p className="text-[10px] text-muted-foreground text-center mt-1">
+            <span className="inline-block w-6 border-b-2 border-primary mr-1 align-middle" />
+            Meses reais
+            <span className="inline-block w-6 border-b-2 border-primary border-dashed mx-2 align-middle" />
+            Projeção (média 3 meses)
+          </p>
         </Card>
       </div >
 

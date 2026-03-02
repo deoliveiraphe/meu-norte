@@ -4,7 +4,8 @@ from fastapi import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import AsyncGenerator
 
-from app.services.llm.ollama_client import ollama_client
+from app.services.llm.groq_client import groq_client
+from app.services.llm.gemini_client import gemini_client
 from app.services.rag.retriever import retriever
 from app.services.rag.prompt_builder import prompt_builder
 from app.models.embedding import FinanceEmbedding
@@ -141,10 +142,24 @@ async def interagir_com_chat_ws(
     db: AsyncSession
 ) -> str:
     hoje = date.today()
-    # 0. Avaliar Intenção Proativa (Criar Lançamento Automático) usando Function Calling nativo Mockado em JSON Format
+    # 0. Avaliar Intenção Proativa
     await websocket.send_json({"type": "status", "content": "Interpretando comando..."})
     prompt_intent = prompt_builder.construir_prompt_extracao(pergunta, hoje.month, hoje.year)
-    extracao = await ollama_client.generate_json(prompt_intent)
+    
+    # Simula chamada JSON estruturada via Groq
+    extracao_text = ""
+    async for token in groq_client.generate_response(prompt_intent + "\n\nResponda APENAS com um JSON válido. Exemplo: {\"intencao_de_criar\": true, \"nome\": \"Conta\", \"valor\": 50, \"tipo\": \"despesa\", \"data_inicial\": \"2023-11-01\", \"parcelas\": 1}. Se não for intenção de criar, responda {\"intencao_de_criar\": false}"):
+        extracao_text += token
+        
+    extracao = {}
+    try:
+        # Extrair JSON da string bruta
+        import re
+        match = re.search(r'\{.*\}', extracao_text, re.DOTALL)
+        if match:
+            extracao = json.loads(match.group(0))
+    except:
+        extracao = {}
     
     if extracao and extracao.get("intencao_de_criar") is True:
         await websocket.send_json({"type": "status", "content": "Registrando no banco de dados..."})
@@ -152,7 +167,7 @@ async def interagir_com_chat_ws(
 
     # 1. Obter os embeddings (assíncrono)
     await websocket.send_json({"type": "status", "content": "Analisando contexto..."})
-    query_vector = await ollama_client.get_embedding(pergunta)
+    query_vector = await gemini_client.embed(pergunta)
     
     # 2. Buscar Vetores Similares na Base (RAG)
     await websocket.send_json({"type": "status", "content": "Pesquisando lançamentos..."})
@@ -179,9 +194,8 @@ async def interagir_com_chat_ws(
     resposta_completa = ""
     await websocket.send_json({"type": "status", "content": "Gerando resposta..."})
     
-    stream_generator = ollama_client.generate_chat_stream(
-        prompt=pergunta,
-        system=system_prompt
+    stream_generator = groq_client.generate_response(
+        prompt=f"{system_prompt}\n\nPERGUNTA DO USUÁRIO:\n{pergunta}"
     )
     
     async for token in stream_generator:

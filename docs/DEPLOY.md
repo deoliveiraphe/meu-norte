@@ -1,120 +1,85 @@
-# 🚀 Guia de Execução Local — FinAI Mente
+# 🚀 Guia de Deploy Gratuito em Nuvem — Meu Norte
 
-Este guia orienta a configuração completa da aplicação em ambiente local utilizando **Docker Compose** e **Ollama** para IA 100% offline, sem dependência de APIs externas.
+Este guia orienta passo a passo o deploy **100% gratuito** de toda a infraestrutura do **Meu Norte** utilizando serviços Modern Cloud (Serverless e PaaS).
 
----
-
-## Pré-requisitos
-
-| Ferramenta | Versão mínima | Link |
-|---|---|---|
-| Docker | 24+ | [docs.docker.com](https://docs.docker.com/get-docker/) |
-| Docker Compose | v2+ | (incluído no Docker Desktop) |
-| Node.js | 18+ | [nodejs.org](https://nodejs.org/) |
-| Git | qualquer | |
-
-> **Hardware recomendado**: 8 GB RAM (o modelo `llama3.2` requer ~4 GB).
+A arquitetura final será dividida nos seguintes serviços:
+- **Frontend (React)**: Vercel
+- **Backend (FastAPI)**: Render (Web Service)
+- **Background Worker (Celery)**: Render (Background Worker)
+- **Banco de Dados (PostgreSQL + pgvector)**: Supabase
+- **Mensageria (Redis)**: Upstash
+- **AI / LLMs**: Groq (Streaming LLaMA 3) e Google Gemini API (Embeddings 768d)
 
 ---
 
-## Configuração do `.env`
+## 1. Banco de Dados com Supabase (PostgreSQL)
 
-```bash
-cd financeai-backend
-cp .env.example .env
-```
+O Supabase oferece um PostgreSQL gerenciado com a extensão `pgvector` pré-instalada, ideal para nossa RAG.
 
-Edite o `.env` com suas preferências:
+1. Crie uma conta no [Supabase](https://supabase.com/).
+2. Clique em **"New Project"**.
+3. Escolha uma senha segura para o banco de dados (guarde-a).
+4. Em **Project Settings > Database**, role até a seção **Connection String** e selecione o formato **URI**.
+5. Copie a URI. Ela será algo parecido com: `postgresql://postgres.[sua-ref]:[sua-senha]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`.
 
-```env
-DB_PASSWORD=sua_senha_segura_aqui
-SECRET_KEY=uma_chave_secreta_longa_e_aleatoria
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
-OLLAMA_URL=http://ollama:11434
-REDIS_URL=redis://redis:6379
-```
+> **⚠️ IMPORTANTE para Asyncpg:** Como nosso backend usa a biblioteca assíncrona `asyncpg`, você precisa alterar o schema da URI do supabase de `postgresql://` para `postgresql+asyncpg://` nas suas variáveis de ambiente finais.
 
----
+## 2. Mensageria com Upstash (Redis)
 
-## Subindo o Projeto (Primeira Vez)
+O Celery necessita de um corretor de mensagens (Message Broker). O Upstash oferece redis Serverless na Free Tier perfeito para tarefas agendadas e WebSocket do RAG.
 
-```bash
-# Na raiz de financeai-backend
-./start.sh
-```
+1. Crie uma conta no [Upstash](https://upstash.com/).
+2. Clique em **"Create Database"** na seção Redis.
+3. Escolha a região mais próxima da API (EUA costuma ser melhor caso o Render suba seu Web Service por lá). Ative o TLS (opção padrão).
+4. Abaixo de **Connect to your database**, role até encontrar a aba **URI**.
+5. Mude a flag/biblioteca para `ioredis` ou `Python (redis-py)` e copie a string de conexão completa que começa com `rediss://`. *Atenção: o 's' duplo em rediss:// indica conexão segura SSL.*
 
-O script executa automaticamente:
-1. `docker-compose up -d` — sobe todos os containers
-2. Download dos modelos de IA no Ollama (`llama3.2` + `nomic-embed-text`)
-3. `alembic upgrade head` — aplica as migrations no banco
-4. `python seed.py` — cria o usuário e categorias iniciais
-5. `npm run dev` — inicia o servidor de desenvolvimento do frontend
+## 3. Chaves das APIs de Inteligência Artificial
 
----
+Nossa aplicação abandonou servidores locais exigentes de GPU (Ollama) para rodar a IA através de Web APIs gratuitas.
 
-## Executando nas Próximas Vezes
+- **Groq API (O Cérebro da Inteligência/Chat):**
+  - Vá em [Groq Console](https://console.groq.com/keys) e crie sua API Key (`gsk_...`).
+- **Google GenAI / Gemini (Responsável por transformar textos em vetores Matemáticos):**
+  - Vá em [Google AI Studio](https://aistudio.google.com/app/apikey) e crie uma chave (`AIzaSy...`).
 
-Após a primeira configuração, para ligar novamente:
+## 4. Deploy do Backend (Render.com)
 
-```bash
-# Subir apenas os containers (sem baixar modelos novamente)
-cd financeai-backend
-docker-compose up -d
+O repositório já contém um arquivo `render.yaml` na raiz do backend que descreve via IaC (Infrastructure as Code) como nosso sistema precisa subir.
 
-# Frontend (em outro terminal, na raiz do projeto)
-npm run dev
-```
+1. Faça login no [Render](https://render.com/).
+2. No Dashboard, clique em **New** e selecione **Blueprint**.
+3. Conecte sua conta do GitHub e selecione o repositório (`deoliveiraphe/meu-norte` ou `finai-mente`).
+4. Na tela de configuração das Variáveis de Ambiente, preencha as chaves:
+   - `DATABASE_URL`: Cole a URL do Supabase com prefixo `postgresql+asyncpg://`.
+   - `REDIS_URL`: Cole a URI de conexão segura do Upstash (`rediss://...`).
+   - `SECRET_KEY`: Será gerada automaticamente e aleatoriamente pelo Render!
+   - `GROQ_API_KEY`: Cole a chave gerada.
+   - `GEMINI_API_KEY`: Cole a chave gerada.
+5. Selecione a instância *Free* e clique em **Apply**. O Render construirá e iniciará ambos a API e o Celery Worker de forma autônoma.
+6. Copie a URL do serviço final gerada pelo Render (ex: `https://meu-norte-api-xp2s.onrender.com`).
 
----
+*(A primeira subida pode demorar alguns minutos. Fique de olho no log do deploy).*
 
-## URLs de Acesso
+> **⚠️ Criando a Primeira Conta (Migração e Seed):** Diferente do local, no cloud você deve acessar a rota administrativa do banco na sua API para preencher a primeira conta (que não estará populada e migrada no banco Supabase puro). Pelo terminal logado na Render digite `alembic upgrade head` ou faça login via painel (Swagger/Frontend).
 
-| Serviço | URL |
-|---|---|
-| **Frontend** | `http://localhost:5173` |
-| **API Docs (Swagger)** | `http://localhost:8000/docs` |
-| **Monitor Celery** | `http://localhost:5555` |
-| **Ollama API** | `http://localhost:11434` |
+## 5. Deploy do Frontend (Vercel)
 
----
+Já que seu backend está publicado na nuvem com um link público HTTPS (Gerado pelo Render), agora subimos o projeto em React (Vite).
 
-## Usuário de Demo (Testes)
+1. No código `.env` da pasta do frontend, altere a URL que sua aplicação usa para se comunicar com o Render.
+   Mude de `http://localhost:8000/api/v1` para `https://[SUA-URL-DO-RENDER.COM]/api/v1`.
+2. Commit (git commit) essa alteração e faça um push para a main do GitHub.
+3. Faça login na [Vercel](https://vercel.com/) com a sua conta do GitHub.
+4. Clique em **Add New... > Project**.
+5. Importe o mesmo repositório do "Meu Norte".
+6. Na configuração do projeto:
+   - Framework Preset: **Vite**
+   - Root Directory: O diretório onde está o `package.json` dependendo da forma que estruturou (se as pastas `src`/`package.json` moram no root ou estão sub alocadas).
+7. Clique em **Deploy**.
 
-Para popular o banco com dados de teste para demonstração:
-
-```bash
-docker exec financeai-backend-backend-1 python create_test_data.py
-```
-
-| Campo | Valor |
-|---|---|
-| **Email** | `portfolio@teste.com` |
-| **Senha** | `Teste123!` |
+O arquivo `vercel.json` na raiz da pasta que enviamos já avisará os servidores para encaminhar requisições em rotas virtuais (SPA fallback) blindando o usuário da página 404!
 
 ---
 
-## Parando os Serviços
-
-```bash
-cd financeai-backend
-docker-compose down
-
-# Para parar E remover os volumes (⚠️ apaga os dados do banco)
-docker-compose down -v
-```
-
----
-
-## Solução de Problemas
-
-**Container do Ollama sem memória:**  
-Aumente o limite de memória do Docker em Preferências > Recursos.
-
-**Porta 5432 em uso:**  
-Verifique se há outro PostgreSQL rodando localmente: `sudo systemctl stop postgresql`
-
-**Migrations falham:**  
-```bash
-docker exec financeai-backend-backend-1 alembic upgrade head
-```
+**Sucesso! 🎉 Você tem uma aplicação bancária IA robusta rodando 100% cloud de forma gratuita!**

@@ -17,8 +17,16 @@ class CategoriaRanking(BaseModel):
 class Indicadores(BaseModel):
     taxa_poupanca_perc: float
     comprometimento_renda_perc: float
+    total_receitas: float = 0.0
+    total_despesas: float = 0.0
+
+class ProjecaoMes(BaseModel):
+    month: str
+    saldo: float
+    tipo: str  # 'real' ou 'proj'
 
 class RelatorioEstatistico(BaseModel):
     evolucao: List[EvolucaoMensal]
     ranking_categorias: List[CategoriaRanking]
     indicadores: Indicadores
+    projecao_saldo: List[ProjecaoMes] = []

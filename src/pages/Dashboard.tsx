@@ -239,21 +239,41 @@ export default function Dashboard() {
               <Calendar className="w-4 h-4 text-foreground" />
               <h3 className="text-sm font-semibold text-foreground">Vencimentos</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {proximos_vencimentos.map((bill: any, i: number) => (
-                <div key={i} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${bill.status === 'HOJE' ? 'bg-warning' : bill.status === 'VENCIDO' ? 'bg-danger' : 'bg-success'
-                    }`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{bill.descricao}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {bill.status === 'HOJE' ? 'Vence Hoje' : bill.status === 'VENCIDO' ? `Vencido há ${bill.dias_para_vencer} dias` : `Vence em ${bill.dias_para_vencer} dias`}
-                    </p>
+              {proximos_vencimentos.map((bill: any, i: number) => {
+                const isVencido = bill.status === 'VENCIDO';
+                const isHoje = bill.status === 'HOJE';
+                const isUrgente = !isVencido && !isHoje && bill.dias_para_vencer <= 2;
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-3 p-2 rounded-lg border transition-colors
+                      ${isVencido ? 'bg-destructive/5 border-destructive/20' :
+                        isHoje ? 'bg-warning/5 border-warning/20' :
+                          isUrgente ? 'bg-orange-500/5 border-orange-500/20' :
+                            'border-transparent'}`}
+                  >
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0
+                      ${isVencido ? 'bg-destructive' : isHoje ? 'bg-warning' : isUrgente ? 'bg-orange-500' : 'bg-success'}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{bill.descricao}</p>
+                      <p className={`text-[10px] font-medium
+                        ${isVencido ? 'text-destructive' : isHoje ? 'text-warning' : isUrgente ? 'text-orange-500' : 'text-muted-foreground'}`}>
+                        {isHoje ? '⚠️ Vence hoje!' :
+                          isVencido ? `🔴 Vencido há ${Math.abs(bill.dias_para_vencer)} dia(s)` :
+                            isUrgente ? `⚡ Vence em ${bill.dias_para_vencer} dia(s)` :
+                              `Vence em ${bill.dias_para_vencer} dia(s)`}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-bold flex-shrink-0
+                      ${isVencido ? 'text-destructive' : isHoje ? 'text-warning' : 'text-foreground'}`}>
+                      {formatCurrency(bill.valor)}
+                    </span>
                   </div>
-                  <span className="text-sm font-semibold text-foreground">{formatCurrency(bill.valor)}</span>
-                </div>
-              ))}
+                );
+              })}
               {proximos_vencimentos.length === 0 && (
                 <p className="text-center text-sm text-muted-foreground py-4">Nenhuma dívida próxima.</p>
               )}
