@@ -13,6 +13,14 @@
 ---
 
 ## 📸 Screenshots do Projeto
+### Dashboard
+<img width="1919" height="985" alt="image" src="https://github.com/user-attachments/assets/ad4942dc-007a-4668-9321-8173fd5581d5" />
+
+### Lançamentos
+<img width="1914" height="975" alt="image" src="https://github.com/user-attachments/assets/a742be27-1650-45f5-bf11-30f7b62e03e8" />
+
+### Relatórios
+<img width="1913" height="986" alt="image" src="https://github.com/user-attachments/assets/f8309f06-0756-4256-8048-9fba6e0c86d4" />
 
 
 <!-- Exemplo de como adicionar prints:
