@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+financeai-backend/venv/
+financeai-backend/.env
+financeai-backend/**/__pycache__/
+financeai-backend/**/*.pyc
+financeai-backend/**/*.pyo
+financeai-backend/.pytest_cache/

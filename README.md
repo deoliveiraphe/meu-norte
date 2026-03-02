@@ -1,73 +1,145 @@
-# Welcome to your Lovable project
+# 🧠 FinAI Mente — Assistente Financeiro com IA
 
-## Project info
+> Plataforma de **gestão financeira pessoal** com assistente de inteligência artificial integrado, capaz de responder perguntas sobre suas finanças com base em seus próprios dados via RAG (Retrieval-Augmented Generation) local.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+<p align="center">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
+  <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=white"/>
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge&logo=postgresql&logoColor=white"/>
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white"/>
+  <img alt="Ollama" src="https://img.shields.io/badge/LLM-Ollama_Local-black?style=for-the-badge"/>
+</p>
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 📸 Screenshots do Projeto
 
-**Use Lovable**
+> _Em breve: adicione aqui os prints do dashboard, chatbot e tela de lançamentos._
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+<!-- Exemplo de como adicionar prints:
+![Dashboard](docs/screenshots/dashboard.png)
+![Chat com IA](docs/screenshots/chat.png)
+![Lançamentos](docs/screenshots/lancamentos.png)
+-->
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## ✨ Funcionalidades
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- 📊 **Dashboard financeiro** — visualização de receitas, despesas e saldo por período
+- 💬 **Chat com IA** — assistente conversacional que responde perguntas sobre suas finanças usando RAG local
+- 📒 **Gestão de lançamentos** — controle de receitas e despesas por categoria, com suporte a parcelas
+- 🔍 **Busca semântica** — os lançamentos são vetorizados e consultados com similaridade de cosseno via `pgvector`
+- ⚡ **Processamento assíncrono** — indexação de embeddings via workers Celery em background
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🏗️ Arquitetura
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+┌─────────────────────────────────────────────┐
+│                  Frontend                    │
+│          React + Vite + TypeScript           │
+│          Shadcn/UI + Tailwind CSS            │
+└──────────────────┬──────────────────────────┘
+                   │ REST API + WebSocket
+┌──────────────────▼──────────────────────────┐
+│                  Backend                     │
+│         FastAPI (Async) + Python 3.12        │
+│  ┌──────────────┐  ┌────────────────────┐   │
+│  │  Auth (JWT)  │  │   RAG Pipeline     │   │
+│  └──────────────┘  │  LangChain+Ollama  │   │
+│  ┌──────────────┐  └────────────────────┘   │
+│  │ Celery Worker│  ┌────────────────────┐   │
+│  │ (Embeddings) │  │ PostgreSQL+pgvector│   │
+│  └──────────────┘  └────────────────────┘   │
+└─────────────────────────────────────────────┘
+         │ Docker Compose (orquestração local)
+┌────────▼──────────────────────────────┐
+│  postgres | redis | ollama | flower   │
+└───────────────────────────────────────┘
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🛠️ Stack Tecnológica
 
-**Use GitHub Codespaces**
+| Camada | Tecnologia |
+|---|---|
+| **Backend** | FastAPI (Async), Python 3.12, SQLAlchemy, Alembic |
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Shadcn/UI |
+| **Banco de dados** | PostgreSQL 15 + `pgvector` |
+| **IA / LLM** | Ollama local (`llama3.2` + `nomic-embed-text`) |
+| **Filas** | Redis + Celery + Flower |
+| **Infraestrutura** | Docker + Docker Compose |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
+## 🚀 Como Rodar Localmente
 
-This project is built with:
+### Pré-requisitos
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- [Docker](https://docs.docker.com/get-docker/) e Docker Compose instalados
+- [Node.js](https://nodejs.org/) (versão 18+)
 
-## How can I deploy this project?
+### Passo a passo
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+**1. Clone o repositório**
+```bash
+git clone https://github.com/deoliveiraphe/finai-mente.git
+cd finai-mente
+```
 
-## Can I connect a custom domain to my Lovable project?
+**2. Configure as variáveis de ambiente**
+```bash
+cd financeai-backend
+cp .env.example .env
+# Edite o .env com uma senha para o banco e uma SECRET_KEY
+```
 
-Yes, you can!
+**3. Suba toda a infraestrutura com o script de inicialização**
+```bash
+./start.sh
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+O script automaticamente:
+- Inicia todos os containers (`postgres`, `redis`, `ollama`, `celery`)
+- Faz o download dos modelos de IA no Ollama
+- Roda as migrations do banco de dados (`alembic upgrade head`)
+- Inicia o servidor de desenvolvimento do frontend
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Acesso
+
+| Serviço | URL |
+|---|---|
+| Frontend | `http://localhost:5173` |
+| API Docs (Swagger) | `http://localhost:8000/docs` |
+| Monitor Celery (Flower) | `http://localhost:5555` |
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
+finai-mente/
+├── financeai-backend/       # API FastAPI
+│   ├── app/
+│   │   ├── api/             # Endpoints REST
+│   │   ├── models/          # Modelos SQLAlchemy
+│   │   ├── schemas/         # Schemas Pydantic
+│   │   ├── services/        # LLM, RAG, Tasks
+│   │   └── core/            # Auth / Config
+│   ├── docker-compose.yml
+│   └── start.sh
+├── src/                     # Frontend React
+│   ├── components/
+│   ├── pages/
+│   └── hooks/
+└── docs/                    # Documentação técnica
+```
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença MIT. Consulte o arquivo `LICENSE` para mais informações.
