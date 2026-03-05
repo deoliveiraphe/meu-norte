@@ -4,15 +4,13 @@ import { MonthSelector } from './MonthSelector';
 
 export function AppLayout({ children, showMonthSelector = true }: { children: ReactNode; showMonthSelector?: boolean }) {
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
       <AppSidebar />
-      <main className="flex-1 min-w-0">
+      <main className="flex-1 overflow-y-auto min-w-0">
         {showMonthSelector && (
-          <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-sm border-b border-border px-4 lg:px-8 py-3 flex items-center justify-between">
-            <div className="lg:hidden w-10" /> {/* spacer for mobile menu */}
+          <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-sm border-b border-border px-4 lg:px-8 py-3 flex items-center justify-center">
             <MonthSelector />
-            <div className="w-10" />
-          </header>
+          </div>
         )}
         <div className="p-4 lg:p-8 fade-in">
           {children}

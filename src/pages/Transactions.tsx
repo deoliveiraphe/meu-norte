@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Search, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown, CheckCircle2, TrendingUp, TrendingDown, FileText, FileSpreadsheet, Share2 } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown, CheckCircle2, TrendingUp, TrendingDown, FileText, FileSpreadsheet, Share2, LayoutGrid, Table } from 'lucide-react';
 import { formatCurrency, type Transaction } from '@/data/mockData';
 import { api } from '@/lib/api';
 import { useFinanceStore } from '@/stores/useFinanceStore';
@@ -61,6 +61,10 @@ export default function Transactions() {
   useEffect(() => {
     carregarLancamentos();
   }, []);
+
+  // View mode: tabela ou cards
+  const [viewMode, setViewMode] = useState<'tabela' | 'cards'>('tabela');
+  const [cardSize, setCardSize] = useState(260);
 
   // Sort and Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -501,6 +505,53 @@ export default function Transactions() {
             ✕ Limpar filtros
           </button>
         )}
+
+        {/* Toggle de visualização */}
+        <div className="flex items-center gap-2 ml-auto self-end">
+
+          {/* Slider de tamanho dos cards — visível só no modo cards */}
+          {viewMode === 'cards' && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border/60 rounded-lg">
+              <LayoutGrid className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+              <input
+                type="range"
+                min={160}
+                max={420}
+                step={10}
+                value={cardSize}
+                onChange={(e) => setCardSize(Number(e.target.value))}
+                className="w-24 h-1.5 accent-primary cursor-pointer"
+                title={`Tamanho dos cards: ${cardSize}px`}
+              />
+              <LayoutGrid className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 p-1 bg-background border border-border/60 rounded-lg">
+            <button
+              onClick={() => setViewMode('tabela')}
+              title="Visualização em tabela"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'tabela'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+            >
+              <Table className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('cards')}
+              title="Visualização em cards"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'cards'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Summary */}
@@ -612,8 +663,126 @@ export default function Transactions() {
         </Card>
       </div>
 
+      {/* Visualização em Cards */}
+      {viewMode === 'cards' && (
+        <div className="space-y-4">
+          {filtered.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <LayoutGrid className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Nenhum lançamento encontrado.</p>
+            </div>
+          ) : (
+            <>
+              {/* Grupos por tipo */}
+              {(['receita', 'despesa', 'renegociacao'] as const).map((tipo) => {
+                const grupo = sortData(filtered.filter(t => t.tipo === tipo));
+                if (grupo.length === 0) return null;
+                const tipoLabel = tipo === 'receita' ? 'Receitas' : tipo === 'despesa' ? 'Despesas' : 'Renegociações';
+                const tipoColor = tipo === 'receita' ? 'text-success' : tipo === 'despesa' ? 'text-destructive' : 'text-warning';
+                const tipoBg = tipo === 'receita' ? 'bg-success/5 border-success/20' : tipo === 'despesa' ? 'bg-destructive/5 border-destructive/20' : 'bg-warning/5 border-warning/20';
+                const tipoIcon = tipo === 'receita' ? <TrendingUp className="w-4 h-4" /> : tipo === 'despesa' ? <TrendingDown className="w-4 h-4" /> : <span className="text-sm">🔄</span>;
+                return (
+                  <div key={tipo}>
+                    <div className={`flex items-center gap-2 px-1 mb-3 ${tipoColor}`}>
+                      {tipoIcon}
+                      <span className="font-semibold text-sm">{tipoLabel}</span>
+                      <span className="text-xs text-muted-foreground font-normal">({grupo.length} itens)</span>
+                    </div>
+                    <div
+                      className="grid gap-3"
+                      style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize}px, 1fr))` }}
+                    >
+                      {grupo.map((t) => (
+                        <div
+                          key={t.id}
+                          className={`relative rounded-xl border p-4 flex flex-col gap-3 transition-all hover:shadow-md cursor-default overflow-hidden min-w-0 ${
+                            selectedTransactions.includes(t.id)
+                              ? tipo === 'receita' ? 'bg-success/10 border-success/40' : tipo === 'despesa' ? 'bg-destructive/10 border-destructive/40' : 'bg-warning/10 border-warning/40'
+                              : tipoBg
+                          }`}
+                        >
+                          {/* Checkbox + Status */}
+                          <div className="flex items-start justify-between gap-2 min-w-0">
+                            <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                              <Checkbox
+                                checked={selectedTransactions.includes(t.id)}
+                                onCheckedChange={() => toggleSelect(t.id)}
+                                className="mt-0.5 flex-shrink-0"
+                              />
+                              <span className="text-base leading-none flex-shrink-0">{t.categoriaEmoji}</span>
+                              <span className="text-xs text-muted-foreground truncate">{t.categoria}</span>
+                            </div>
+                            <Badge className={`text-[10px] font-semibold px-2 py-0.5 shrink-0 ${
+                              t.status === 'pago' ? 'bg-success-light text-success hover:bg-success-light' :
+                              t.status === 'pendente' ? 'bg-warning-light text-warning hover:bg-warning-light' :
+                              'bg-danger-light text-danger hover:bg-danger-light'
+                            }`}>
+                              {t.status === 'pago' ? 'Pago' : t.status === 'pendente' ? 'Pendente' : 'Vencido'}
+                            </Badge>
+                          </div>
+
+                          {/* Descrição */}
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm text-foreground leading-tight line-clamp-2 break-words">{t.descricao}</p>
+                            {t.observacoes && (
+                              <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1 break-words">{t.observacoes}</p>
+                            )}
+                          </div>
+
+                          {/* Valor + Vencimento */}
+                          <div className="flex flex-col gap-1 mt-auto">
+                            <div className="flex items-center justify-between gap-2 min-w-0">
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">Vencimento</span>
+                              <span className="text-xs font-medium text-foreground">
+                                {new Date(t.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}
+                              </span>
+                            </div>
+                            <p className={`text-base font-bold text-right truncate ${
+                              tipo === 'receita' ? 'text-success' : tipo === 'despesa' ? 'text-destructive' : 'text-warning'
+                            }`}>
+                              {tipo === 'renegociacao' ? '≈ ' : tipo === 'despesa' ? '- ' : '+ '}{formatCurrency(t.valor)}
+                            </p>
+                          </div>
+
+                          {/* Ações */}
+                          <div className="flex items-center justify-end gap-1 pt-2 border-t border-border/40">
+                            <button
+                              onClick={() => toggleStatus(t)}
+                              title={t.status === 'pago' ? 'Desmarcar' : 'Marcar como Pago'}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                t.status === 'pago' ? 'text-success hover:bg-success/20' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                              }`}
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => openEditModal(t)}
+                              title="Editar"
+                              className="p-1.5 rounded-md hover:bg-secondary transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                            </button>
+                            <button
+                              onClick={() => setTransactionsToDelete([t.id])}
+                              title="Excluir"
+                              className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Tabelas: Receitas, Renegociações e Despesas */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      {viewMode === 'tabela' && <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
 
         {/* Receitas Table (Menor, sem paginação) */}
         <Card className="card-shadow overflow-hidden xl:col-span-6 self-start">
@@ -929,7 +1098,7 @@ export default function Transactions() {
             </div>
           </div>
         </Card >
-      </div >
+      </div >}
 
       {/* New Transaction Modal Refactored */}
       < Dialog open={modalOpen} onOpenChange={setModalOpen} >
