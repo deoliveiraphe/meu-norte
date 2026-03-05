@@ -15,10 +15,14 @@ if [ -f .env ]; then
   # Carrega variáveis do .env ignorando comentários e linhas vazias
   export $(grep -v '^#' .env | xargs)
 fi
-docker-compose up -d
+docker compose up -d
 
-echo "2. Aguardando serviços (15 segundos para o Postgres e Ollama estabilizarem)..."
-sleep 15
+echo "2. Aguardando Postgres ficar pronto..."
+until docker exec financeai-backend-postgres-1 pg_isready -U postgres -d financeai -q 2>/dev/null; do
+  echo "  Postgres ainda não está pronto, aguardando..."
+  sleep 3
+done
+echo "  ✅ Postgres pronto!"
 
 echo "3. Baixando modelos de IA no Ollama (Local LLM)..."
 echo "  [Llama 3.2] Modelo Base para Chatbots RAG..."
@@ -46,5 +50,5 @@ echo "Pressione Ctrl+C para encerrar o Frontend (o Backend Docker continuará no
 echo "================================================="
 
 cd ..
-npm install
-npm run dev
+~/.bun/bin/bun install
+~/.bun/bin/bun run dev
